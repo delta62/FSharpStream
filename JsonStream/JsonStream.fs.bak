@@ -1,0 +1,231 @@
+module JsonStream
+
+open System.IO
+open System.Text
+open System
+open FSharpx.Collections
+open FSharpx
+
+type JsonToken =
+    | LeftCurly
+    | RightCurly
+    | LeftBracket
+    | RightBracket
+    | Comma
+    | Colon
+    | JsonString of string
+    | Null
+    | True
+    | False
+    | Number of double
+
+type JsonChar   = { Line: int; Column: int; Char: char; }
+type ParseError = { Line: int; Column: int; Message: string; }
+
+module JsonChar =
+    let fmap (f: char -> char) (c: JsonChar) =
+        { Line = c.Line; Column = c.Column; Char = f c.Char }
+
+    let bind f c = f c.Char
+
+    let unit ch = { Line = 1; Column = 0; Char = ch }
+
+    let newline (last: JsonChar) =
+        { Line = last.Line + 1; Column = 0; Char = '\n' }
+
+    let char (last: JsonChar) c =
+        { Line = last.Line; Column = last.Column + 1; Char = c }
+
+let getStream (stream: Stream) = seq {
+    use reader = new StreamReader(stream, Encoding.UTF8, false)
+    while not reader.EndOfStream do
+        yield char (reader.Read())
+}
+
+let getList stream=
+    getStream stream |> LazyList.ofSeq
+
+/// <summary>
+/// Convert a stream of characters into a stream of annotated characters
+/// </summary>
+let jsonStream list =
+    let seed = JsonChar.unit '0'
+    let folder state c =
+        if c = '\n' then JsonChar.newline state
+        else JsonChar.char state c
+    LazyList.scan folder seed list
+
+let numericLeader c =
+    // RFC 8259 secion 6
+    Char.IsDigit c || c = '-'
+
+let whitespace c =
+    // Unicode whitespace chars are not allowed. See RFC 8259 section 2.
+    match c with
+    | ' ' | '\r' | '\t' | '\n' -> true
+    | _                        -> false
+
+let hexChar c =
+    match c with
+    | c when c >= 'A' && c <= 'F' -> true
+    | c when c >= 'a' && c <= 'f' -> true
+    | c when c >= '0' && c <= '9' -> true
+    | _                           -> false
+
+let stringChar c =
+    // RFC 8259 section 7
+    match int c with
+    | c when c >= 0x20 && c <= 0x21     -> true
+    | c when c >= 0x23 && c <= 0x5B     -> true
+    | c when c >= 0x5D && c <= 0x10FFFF -> true
+    | _                                 -> false
+
+let unexpectedEof =
+    Error {
+        Line    = 0;
+        Column  = 0;
+        Message = "Unexpected end of input";
+    }
+
+/// <summary>
+/// Fails with a given character position and message
+/// </summary>
+let charError (char: JsonChar) (msg: string) =
+    Error {
+        Line    = char.Line;
+        Column  = char.Column;
+        Message = msg;
+    }
+
+/// <summary>
+/// Match a series of characters against a character stream, returning
+/// a new stream with the expected characters popped off the front.
+/// </summary>
+let rec expectChars chars list =
+    match (chars, list) with
+    | ([], _)           -> Ok list
+    | (_, LazyList.Nil) -> unexpectedEof
+    | (ch::ct, LazyList.Cons(x, xs)) when ch = x.Char ->
+        expectChars ct xs
+    | (ch::_, LazyList.Cons(x, _)) ->
+        sprintf "Expected a '%c', but got a '%c'" ch x.Char |> charError x
+
+let chars2char chars =
+    let folder acc pair =
+        let idx = fst pair
+        let jc = snd pair
+        let c = jc.Char
+        acc + (c |> int) <<< (4 - idx)
+    let sum = List.indexed chars |> List.fold folder 0
+    { Line = chars.Head.Line; Column = chars.Head.Column; Char = char sum; }
+
+module Result =
+    let fromOption opt err =
+        match opt with
+        | None   -> err
+        | Some x -> Ok x
+
+let flip f x y = f y x
+
+let parseUnicodeEscape list =
+    LazyList.tryTake 4 list
+        |> Option.map LazyList.toList
+        |> Option.map chars2char
+        |> flip Result.fromOption unexpectedEof
+        |> Result.map (fun x -> (x.Char, LazyList.skip 4 list))
+
+let parseEscape list =
+    match list with
+    | LazyList.Nil        -> unexpectedEof
+    | LazyList.Cons(x,xs) ->
+        match x.Char with
+        // See RFC 8259 section 7
+        | '"'  -> Ok ('\"', xs)
+        | '\\' -> Ok ('\\', xs)
+        | '/'  -> Ok ('/', xs)
+        | 'b'  -> Ok (char 0x08, xs)
+        | 'f'  -> Ok (char 0x0C, xs)
+        | 'n'  -> Ok ('\n', xs)
+        | 'r'  -> Ok ('\r', xs)
+        | 't'  -> Ok ('\t', xs)
+        | 'u'  -> parseUnicodeEscape xs
+        | c    -> sprintf "Unexpected escape '%c'" c |> charError x
+
+let charPair2str pair =
+    Result.map (fun (c,list) -> sprintf "%c" c, list) pair
+
+let rec parseString list =
+    match list with
+    | LazyList.Nil        -> unexpectedEof
+    | LazyList.Cons(x,xs) ->
+        match x.Char with
+        | '\\'                -> parseEscape xs |> charPair2str
+        | '"'                 -> Ok ("", xs)
+        | c when stringChar c ->
+            parseString xs |> Result.map (fun x -> (sprintf "%c%s" c (fst x), snd x))
+        | c -> sprintf "Illegal string character '%c'" c |> charError x
+
+let parseNumber list =
+    // let (sign,stream) = parseSign stream
+    // let (int,stream) = parseInt stream
+    // let (frac,stream) = parseFrac stream
+    // let (exp,stream) = parseExp stream
+    Ok (3.14, list)
+
+let rec tokenStream list = seq {
+    match list with
+    | LazyList.Nil -> ()
+    | LazyList.Cons(head,tail) ->
+        match head.Char with
+        | '{' ->
+            yield Ok LeftCurly
+            yield! tokenStream tail
+        | '}' ->
+            yield Ok RightCurly
+            yield! tokenStream tail
+        | '[' ->
+            yield Ok LeftBracket
+            yield! tokenStream tail
+        | ']' ->
+            yield Ok RightBracket
+            yield! tokenStream tail
+        | ',' ->
+            yield Ok Comma
+            yield! tokenStream tail
+        | ':' ->
+            yield Ok Colon
+            yield! tokenStream tail
+        | 'n' ->
+            let res = expectChars ['n';'u';'l';'l';] list
+            yield Result.map (fun _ -> Null) res
+            yield! tokenStream tail
+        | 't' ->
+            let res = expectChars ['t';'r';'u';'e';] list
+            yield Result.map (fun _ -> True) res
+            yield! tokenStream tail
+        | 'f' ->
+            let res = expectChars ['f';'a';'l';'s';'e';] list
+            yield Result.map (fun _ -> False) res
+            yield! tokenStream tail
+        | '"' ->
+            let res = parseString tail
+            yield Result.map (fst >> JsonString) res
+            yield! tokenStream tail
+        | x when numericLeader x ->
+            let res = parseNumber list
+            yield Result.map (fst >> Number) res
+            yield! tokenStream tail
+        | x when whitespace x ->
+            yield! tokenStream tail
+        | c ->
+            yield Error {
+                Line = head.Line;
+                Column = head.Column;
+                Message = sprintf "Unexpected input '%c'" c;
+            }
+}
+
+[<EntryPoint>]
+let main argv =
+    printfn "%A" argv
+    0 // return an integer exit code
