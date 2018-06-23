@@ -81,15 +81,28 @@ let unescaped = function
 let nextChar =
   state {
     let! (state: LazyList<JsonChar>) = get
-    let head = state.Head
-    do! put state.Tail
-    return head
+    let (ret, tail) =
+      match LazyList.isEmpty state with
+      | true  -> Error unexpectedEof, LazyList.empty
+      | false -> Ok state.Head, state.Tail
+    do! put tail
+    return ret
+  }
+
+let expectChar expected =
+  state {
+    let! actual = nextChar
+    return Result.bind (fun x ->
+      match x.Char with
+      | c when c = expected -> Ok ()
+      | _                   -> Error (unexpectedInput x)
+    ) actual
   }
 
 let eatChar =
   state {
-    let! _ = nextChar
-    return ()
+    let! res = nextChar
+    return Result.map ignore res
   }
 
 let hexEsc =
@@ -161,10 +174,14 @@ let fls =
 let nul =
   state {
     let! n = nextChar
-    let! u = nextChar
-    let! l = nextChar
-    let! l = nextChar
-    return Ok Null
+    let! u = expectChar 'u'
+    let! l = expectChar 'l'
+    let! l = expectChar 'l'
+    return Ok {
+      Line   = n.Line;
+      Column = n.Column;
+      Value  = Null;
+    }
   }
 
 let num =

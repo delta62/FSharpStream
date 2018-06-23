@@ -7,16 +7,19 @@ let runState (State f) s = f s
 let unit x =
   State(fun s -> (x, s))
 
+let bind x f =
+  let fn s =
+    let content, newState = runState x s
+    let newerState = f content
+    runState newerState newState
+  State fn
+
 type StateBuilder() =
   member __.Return x =
     unit x
 
   member __.Bind(x, f) =
-    let fn s =
-      let content, newState = runState x s
-      let newerState = f content
-      runState newerState newState
-    State fn
+    bind x f
 
 let state = new StateBuilder()
 
