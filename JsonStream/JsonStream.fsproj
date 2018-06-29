@@ -6,8 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <Compile Include="State.fs" />
-    <Compile Include="ResultState.fs" />
+    <Compile Include="StateRBuilder.fs" />
     <Compile Include="Tokenizer.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
