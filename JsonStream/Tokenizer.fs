@@ -1,8 +1,8 @@
 module Tokenizer
 
 open FSharpx.Collections
-open System.IO
 open State
+open System.IO
 open System.Text
 
 type Token =
@@ -16,7 +16,7 @@ type Token =
   | False
   | Null
   | String of string
-  | Number of double
+  | Number of string
 
 type ParseError = {
   Line    : uint32;
@@ -75,45 +75,81 @@ let nextChar =
   | LazyList.Nil        -> Error unexpectedEof
   | LazyList.Cons(h, t) -> Ok (h, t))
 
+let putChar c =
+  rstate {
+    let! list = get
+    do! LazyList.cons c list |> put
+  }
+
 let expectChar expected =
-  RState (function
-  | LazyList.Nil        -> Error unexpectedEof
-  | LazyList.Cons(h, t) ->
-    match h.Char with
-    | c when c = expected -> Ok (h, t)
-    | _                   -> Error (unexpectedInput h))
+  rstate {
+    let! next = nextChar
+    return!
+      match next.Char with
+      | c when c = expected -> unit ()
+      | _ -> unexpectedInput next |> fail
+  }
+
+let rec expectChars expected =
+  rstate {
+    match expected with
+    | [ ] -> return ()
+    | c :: tail ->
+      do! expectChar c
+      return! expectChars tail
+  }
 
 let expect f =
-  RState (function
-  | LazyList.Nil -> Error unexpectedEof
-  | LazyList.Cons(h, t) ->
-    match h.Char with
-    | c when f c -> Ok (h, t)
-    | _           -> Error (unexpectedInput h))
-
-let eatChar =
   rstate {
-    let! _ = nextChar
-    return ()
+    let! next = nextChar
+    return!
+      match next.Char with
+      | c when f c -> unit next
+      | _ -> unexpectedInput next |> fail
+  }
+
+let maybeNextChar f =
+  rstate {
+    let! list = get
+    if not (LazyList.isEmpty list) && f list.Head then
+      let! jc = nextChar
+      return Some jc
+    else
+      return None
+  }
+
+module LazyList =
+  let rec takeWhile f xs =
+    match xs with
+    | LazyList.Nil -> [ ]
+    | LazyList.Cons(h, t) ->
+      if f h then h :: takeWhile f t else [ ]
+
+let takeWhile f =
+  rstate {
+    let! list = get
+    let xs = LazyList.takeWhile f list
+    let tail = LazyList.skip (List.length xs) list
+    do! put tail
+    return xs
   }
 
 let (<<!) (c: char) w = uint32 c <<< w
 
 let hexChar = function
-| c when c >= 'a' && c <= 'z' -> true
-| c when c >= 'A' && c <= 'z' -> true
-| _                           -> false
+| c when System.Char.IsDigit c -> true
+| c when c >= 'a' && c <= 'f'  -> true
+| c when c >= 'A' && c <= 'F'  -> true
+| _                            -> false
 
 let unicodeEsc =
   rstate {
-    let! _ = expectChar 'u'
     let! a = expect hexChar
     let! b = expect hexChar
     let! c = expect hexChar
     let! d = expect hexChar
     let num = (a.Char <<! 24) + (b.Char <<! 16) + (c.Char <<!  8) + (d.Char |> uint32)
-    let char = char num
-    return { Line = a.Line; Column = a.Column; Char = char; }
+    return { Line = a.Line; Column = a.Column; Char = char num; }
   }
 
 let fromChar jc c =
@@ -155,59 +191,103 @@ let tokenAtChar char scalar =
     Token  = scalar;
   }
 
-let rec stringyThingy (s: LazyList<JsonChar>): Result<JsonChar list * LazyList<JsonChar>, ParseError> =
-  let head = s.Head
-  match head.Char with
-  | '"' ->
-    Ok ([ ], s.Tail)
-  | c when unescaped c ->
-    Result.map (fun (list, tail) -> head :: list, tail) (stringyThingy s.Tail)
-  | '\\' ->
-    Result.bind (fun (c, tail) ->
-      Result.map (fun (list, tail2) -> c :: list, tail2) (stringyThingy tail)
-    ) (runStateR esc s.Tail)
-  | _ -> Error (unexpectedInput head)
-
-let stringToken =
+let rec stringToken acc =
   rstate {
     let! nc = nextChar
-    let! c =
-      match nc.Char with
-      | '\\'               -> esc
-      | '"'                -> unit nc
-      | c when unescaped c -> unit nc
-      | _                  -> unexpectedInput nc |> fail
-    return tokenAtChar c (String (sprintf "%c" c.Char))
+    match nc.Char with
+    | '\\' ->
+      let! c = esc
+      return! stringToken (c.Char :: acc)
+    | '"' ->
+      let chars = List.rev acc |> Array.ofList |> System.String
+      return String chars
+    | c when unescaped c ->
+      return! stringToken (c :: acc)
+    | _ ->
+      return! unexpectedInput nc |> fail
   }
 
 let trueToken t =
   rstate {
-    let! _ = expectChar 'r'
-    let! _ = expectChar 'u'
-    let! _ = expectChar 'e'
+    do! expectChars [ 'r'; 'u'; 'e'; ]
     return tokenAtChar t True
   }
 
 let falseToken f =
   rstate {
-    let! _ = expectChar 'a'
-    let! _ = expectChar 'l'
-    let! _ = expectChar 's'
-    let! _ = expectChar 'e'
+    do! expectChars [ 'a'; 'l'; 's'; 'e'; ]
     return tokenAtChar f False
   }
 
 let nullToken n =
   rstate {
-    let! _ = expectChar 'u'
-    let! _ = expectChar 'l'
-    let! _ = expectChar 'l'
+    do! expectChars [ 'u'; 'l'; 'l'; ]
     return tokenAtChar n Null
   }
 
-let numericToken leader =
+let rec digits acc =
   rstate {
-    return tokenAtChar leader (Number 42.0)
+    let! jc = maybeNextChar (fun jc -> System.Char.IsDigit jc.Char)
+    match jc with
+    | Some c -> return! digits (c.Char :: acc)
+    | None   -> return List.rev acc
+  }
+
+let zeroOrDigits =
+  rstate {
+    let! next = expect System.Char.IsDigit
+    match next.Char with
+    | c when c = '0' -> return [ c ]
+    | c -> return! digits [ c ]
+  }
+
+let frac =
+  rstate {
+    let! point = maybeNextChar (fun c -> c.Char = '.')
+    match point with
+    | Some _ ->
+      let! x = expect System.Char.IsDigit
+      let! xs = takeWhile (fun jc -> System.Char.IsDigit jc.Char)
+      return List.concat [ [ '.' ]; [ x.Char ]; List.map (fun x -> x.Char) xs ]
+    | None -> return [ ]
+  }
+
+let exp =
+  rstate {
+    let! e = maybeNextChar (fun c -> c.Char = 'e' || c.Char = 'E')
+    match e with
+    | Some jc ->
+      let! signOpt = maybeNextChar (fun c -> c.Char = '+' || c.Char = '-')
+      let sign =
+        match signOpt with
+        | Some jc -> [ jc.Char ]
+        | None -> [ ]
+      let! x = expect System.Char.IsDigit
+      let! xs = takeWhile (fun jc -> System.Char.IsDigit jc.Char)
+      return List.concat [ [ jc.Char ]; sign; [ x.Char ]; List.map (fun x -> x.Char) xs ]
+    | None -> return [ ]
+  }
+
+let sign =
+  rstate {
+    let! sign = maybeNextChar (fun c -> c.Char = '-')
+    match sign with
+    | Some x -> return [ x.Char ]
+    | None   -> return [ ]
+  }
+
+let numericToken (leader: JsonChar): RState<LazyList<JsonChar>, Token, ParseError> =
+  rstate {
+    do! putChar leader
+    let! sign = sign
+    let! digits = zeroOrDigits
+    let! frac = frac
+    let! exp = exp
+
+    return List.concat [ sign; digits; frac; exp; ]
+      |> Array.ofList
+      |> System.String
+      |> Number
   }
 
 let numericLeader = function
@@ -218,20 +298,22 @@ let numericLeader = function
 let token =
   rstate {
     let! jc = nextChar
+    let f = tokenAtChar jc
     let! r =
       match jc.Char with
-      | '{' -> tokenAtChar jc LeftCurly    |> unit
-      | '}' -> tokenAtChar jc RightCurly   |> unit
-      | '[' -> tokenAtChar jc LeftBracket  |> unit
-      | ']' -> tokenAtChar jc RightBracket |> unit
-      | ':' -> tokenAtChar jc Colon        |> unit
-      | ',' -> tokenAtChar jc Comma        |> unit
-      | '"' -> stringToken
-      | 't' -> trueToken   jc
-      | 'f' -> falseToken  jc
-      | 'n' -> nullToken   jc
-      | c when numericLeader c -> numericToken jc
-      | _ -> unexpectedInput jc |> fail
+      | '{' -> f LeftCurly    |> unit
+      | '}' -> f RightCurly   |> unit
+      | '[' -> f LeftBracket  |> unit
+      | ']' -> f RightBracket |> unit
+      | ':' -> f Colon        |> unit
+      | ',' -> f Comma        |> unit
+      | 't' -> trueToken jc
+      | 'f' -> falseToken jc
+      | 'n' -> nullToken jc
+      | '"' -> stringToken [ ] |> fmap f
+      | c when numericLeader c ->
+        fmap f (numericToken jc)
+      | _   -> unexpectedInput jc |> fail
     return r
   }
 
@@ -239,7 +321,11 @@ let parse (stream: Stream) =
   let unfolder s =
     match s with
     | LazyList.Nil -> None
-    | _            -> runStateR token s |> Some
+    | _ ->
+      let result = runStateR token s
+      match result with
+      | Ok (content, tail) -> Some (Ok content, tail)
+      | Error e            -> Some (Error e, LazyList.empty)
 
   stream
    |> fromIoStream

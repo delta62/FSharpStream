@@ -12,6 +12,10 @@ let fail e =
 type RStateBuilder() =
   member __.Return(x) = unit x
 
+  member __.Zero() = unit ()
+
+  member __.ReturnFrom(x) = x
+
   member __.Bind(RState f, x) =
     let fn s =
       let pair = f s
@@ -26,4 +30,9 @@ let get =
 
 let put x =
   let fn = fun _ -> Ok ((), x)
+  RState fn
+
+let fmap f (RState x) =
+  let mapper (content, state) = f content, state
+  let fn s = Result.map (fun (content, state) -> (f content, state)) (x s)
   RState fn
