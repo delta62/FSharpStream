@@ -1,9 +1,7 @@
 module Tokenizer
 
 open FSharpx.Collections
-open State
-open System.IO
-open System.Text
+open RState
 
 type Token =
   | LeftCurly
@@ -36,32 +34,13 @@ type JsonChar = {
   Char   : char;
 }
 
-type JsonStream = LazyList<JsonChar>
-
-let lazyUtf8Stream (stream: Stream) =
-  use reader = new StreamReader(stream, Encoding.UTF8, false)
-  let unfolder (reader: StreamReader) =
-    if reader.EndOfStream then None
-    else Some (reader.Read() |> char, reader)
-  LazyList.unfold unfolder reader
-
-let charsToCodePoints chars =
+let charsToJsonChars chars =
   let initialState = { Line = 1u; Column = 0u; Char = '0'; }
   let folder state item =
     match item with
     | '\n' -> { Line = state.Line + 1u; Column = 1u; Char = item; }
     | _    -> { Line = state.Line; Column = state.Column + 1u; Char = item; }
-  LazyList.scan folder initialState chars
-
-let fromIoStream stream =
-   stream |> lazyUtf8Stream |> charsToCodePoints
-
-let unexpectedEof =
-  {
-    Line    = 0u;
-    Column  = 0u;
-    Message = "Unexpected EOF";
-  }
+  LazyList.scan folder initialState chars |> LazyList.skip 1
 
 let unexpectedInput char =
   {
@@ -72,7 +51,12 @@ let unexpectedInput char =
 
 let nextChar =
   RState (function
-  | LazyList.Nil        -> Error unexpectedEof
+  | LazyList.Nil ->
+    Error {
+      Line    = 0u;
+      Column  = 0u;
+      Message = "Unexpected EOF";
+    }
   | LazyList.Cons(h, t) -> Ok (h, t))
 
 let putChar c =
@@ -145,29 +129,24 @@ let unicodeEsc =
     return { Line = a.Line; Column = a.Column; Char = char num; }
   }
 
-let fromChar jc c =
-  {
-    Line   = jc.Line;
-    Column = jc.Column;
-    Char   = c;
-  }
-
 let esc =
+  let fromChar jc c =
+      unit { Line = jc.Line; Column = jc.Column; Char = c; }
+
   rstate {
-    let! c = nextChar
-    let! r =
-      match c.Char with
-      | 'b' -> fromChar c '\b' |> unit
-      | 'f' -> fromChar c '\f' |> unit
-      | 'n' -> fromChar c '\n' |> unit
-      | 'r' -> fromChar c '\r' |> unit
-      | 't' -> fromChar c '\t' |> unit
+    let! jc = nextChar
+    return!
+      match jc.Char with
+      | 'b' -> fromChar jc '\b'
+      | 'f' -> fromChar jc '\f'
+      | 'n' -> fromChar jc '\n'
+      | 'r' -> fromChar jc '\r'
+      | 't' -> fromChar jc '\t'
       | '"'
       | '\\'
-      | '/' -> unit c
+      | '/' -> unit jc
       | 'u' -> unicodeEsc
-      | _   -> unexpectedInput c |> fail
-    return r
+      | _   -> unexpectedInput jc |> fail
   }
 
 let unescaped (x: char) =
@@ -269,7 +248,7 @@ let sign =
     | None   -> return [ ]
   }
 
-let numericToken (leader: JsonChar): RState<LazyList<JsonChar>, Token, ParseError> =
+let numericToken leader =
   rstate {
     do! putChar leader
     let! sign = sign
@@ -310,7 +289,7 @@ let token =
     return r
   }
 
-let parse (stream: Stream) =
+let tokenize chars =
   let unfolder s =
     match s with
     | LazyList.Nil -> None
@@ -320,6 +299,4 @@ let parse (stream: Stream) =
       | Ok (content, tail) -> Some (Ok content, tail)
       | Error e            -> Some (Error e, LazyList.empty)
 
-  stream
-   |> fromIoStream
-   |> LazyList.unfold unfolder
+  chars |> charsToJsonChars |> LazyList.unfold unfolder

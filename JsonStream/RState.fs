@@ -1,4 +1,4 @@
-module State
+module RState
 
 type RState<'s, 'a, 'err> = RState of ('s -> Result<('a * 's), 'err>)
 let runStateR (RState f) s = f s

@@ -1,6 +1,7 @@
 #r "paket:
 nuget Fake.IO.FileSystem
 nuget Fake.DotNet.MSBuild
+nuget Fake.DotNet.Paket
 nuget Fake.Core.Target //"
 #load "./.fake/build.fsx/intellisense.fsx"
 
@@ -16,6 +17,10 @@ Target.create "Clean" (fun _ ->
     Shell.cleanDir buildDir
 )
 
+Target.create "Restore" (fun _ ->
+    Paket.restore id
+)
+
 Target.create "BuildApp" (fun _ ->
     !! "JsonStream/**/*.fsproj"
         |> MSBuild.runRelease id buildDir "Build"
@@ -23,6 +28,7 @@ Target.create "BuildApp" (fun _ ->
 )
 
 "Clean"
+  ==> "Restore"
   ==> "BuildApp"
 
 Target.runOrDefault "BuildApp"
