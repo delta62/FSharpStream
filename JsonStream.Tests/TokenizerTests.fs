@@ -12,60 +12,24 @@ let singletonList f xs =
     | _ -> false
   | _ -> false
 
+let makeTest (input, expected) =
+  testCase (sprintf "Tokenizes %s" input) <| fun _ ->
+    let result = LazyList.ofSeq input |> tokenize
+    let isOk x = x = expected
+    Expect.isTrue (singletonList isOk result) (sprintf "Failed to tokenize \"%s\"" input)
+
+let inputs = [
+  ("null", Null)
+  ("true", True)
+  ("false", False)
+  ("{", LeftCurly)
+  ("}", RightCurly)
+  ("[", LeftBracket)
+  ("]", RightBracket)
+  (":", Colon)
+  (",", Comma)
+]
+
 [<Tests>]
 let tests =
-  testList "Scalar Tokens" [
-    testCase "Tokenizes null" <| fun _ ->
-      let subject = LazyList.ofSeq "null"
-      let result = tokenize subject
-      let isNull x = x = Null
-      Expect.isTrue (singletonList isNull result) "failed to tokenize \"null\""
-
-    testCase "Tokenizes true" <| fun _ ->
-      let subject = LazyList.ofSeq "true"
-      let result = tokenize subject
-      let isTrue x = x = True
-      Expect.isTrue (singletonList isTrue result) "failed to tokenize \"true\""
-
-    testCase "Tokenizes false" <| fun _ ->
-      let subject = LazyList.ofSeq "false"
-      let result = tokenize subject
-      let isFalse x = x = False
-      Expect.isTrue (singletonList isFalse result) "failed to tokenize \"false\""
-
-    testCase "Tokenizes {" <| fun _ ->
-      let subject = LazyList.ofSeq "{"
-      let result = tokenize subject
-      let isLeftCurly x = x = LeftCurly
-      Expect.isTrue (singletonList isLeftCurly result) "failed to tokenize \"{\""
-
-    testCase "Tokenizes }" <| fun _ ->
-      let subject = LazyList.ofSeq "}"
-      let result = tokenize subject
-      let isRightCurly x = x = RightCurly
-      Expect.isTrue (singletonList isRightCurly result) "failed to tokenize \"}\""
-
-    testCase "Tokenizes [" <| fun _ ->
-      let subject = LazyList.ofSeq "["
-      let result = tokenize subject
-      let isLeftBracket x = x = LeftBracket
-      Expect.isTrue (singletonList isLeftBracket result) "failed to tokenize \"[\""
-
-    testCase "Tokenizes ]" <| fun _ ->
-      let subject = LazyList.ofSeq "]"
-      let result = tokenize subject
-      let isRightBracket x = x = RightBracket
-      Expect.isTrue (singletonList isRightBracket result) "failed to tokenize \"]\""
-
-    testCase "Tokenizes :" <| fun _ ->
-      let subject = LazyList.ofSeq ":"
-      let result = tokenize subject
-      let isColon x = x = Colon
-      Expect.isTrue (singletonList isColon result) "failed to tokenize \":\""
-
-    testCase "Tokenizes ," <| fun _ ->
-      let subject = LazyList.ofSeq ","
-      let result = tokenize subject
-      let isComma x = x = Comma
-      Expect.isTrue (singletonList isComma result) "failed to tokenize \",\""
-  ]
+  testList "Scalar Tokens" <| List.map makeTest inputs

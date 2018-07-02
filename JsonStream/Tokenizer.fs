@@ -271,7 +271,7 @@ let token =
   rstate {
     let! jc = nextChar
     let f = tokenAtChar jc
-    let! r =
+    return!
       match jc.Char with
       | '{' -> f LeftCurly    |> unit
       | '}' -> f RightCurly   |> unit
@@ -286,7 +286,6 @@ let token =
       | c when numericLeader c ->
         fmap f (numericToken jc)
       | _   -> unexpectedInput jc |> fail
-    return r
   }
 
 let tokenize chars =
