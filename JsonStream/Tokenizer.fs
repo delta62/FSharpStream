@@ -118,13 +118,6 @@ let maybeNextChar f =
       return None
   }
 
-module LazyList =
-  let rec takeWhile f xs =
-    match xs with
-    | LazyList.Nil -> [ ]
-    | LazyList.Cons(h, t) ->
-      if f h then h :: takeWhile f t else [ ]
-
 let takeWhile f =
   rstate {
     let! list = get

@@ -1,11 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <DebugType>Portable</DebugType>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <Compile Include="LazyList.fs" />
     <Compile Include="StateRBuilder.fs" />
     <Compile Include="Tokenizer.fs" />
   </ItemGroup>
