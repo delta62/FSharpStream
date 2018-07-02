@@ -2,9 +2,10 @@ source https://www.nuget.org/api/v2
 
 nuget FSharp.Core
 nuget FSharpx.Collections
-nuget FSharpx.Extras
 
-group Build
-source https://www.nuget.org/api/v2
+group Test
 
-nuget FAKE
+    source https://www.nuget.org/api/v2
+    nuget Expecto
+    nuget Expecto.BenchmarkDotNet
+    nuget Expecto.FsCheck
