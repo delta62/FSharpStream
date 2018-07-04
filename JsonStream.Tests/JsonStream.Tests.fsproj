@@ -5,6 +5,8 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ScienceGenerator.fs" />
+    <Compile Include="NumberTests.fs" />
     <Compile Include="TokenizerTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
