@@ -32,4 +32,10 @@ let inputs = [
 
 [<Tests>]
 let tests =
-  testList "Scalar Tokens" <| List.map makeTest inputs
+  testList "Tokenizer" [
+    testList "Scalar Tokens" <| List.map makeTest inputs
+
+    testCase "Tokenizes empty stream" <| fun _ ->
+      let subject = LazyList.empty |> tokenize
+      Expect.isTrue (LazyList.isEmpty subject) "Failed to tokenize an empty stream"
+  ]
