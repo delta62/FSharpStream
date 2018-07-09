@@ -1,8 +1,7 @@
-language: fsharp
+language: csharp
 solution: JsonStream.sln
 mono: none
 dotnet: 2.1.300
 script:
   - dotnet restore
   - dotnet build
-  - dotnet test --project ./JsonStream.Tests/JsonStream.Tests.fsproj
