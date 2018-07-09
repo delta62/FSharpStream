@@ -1,4 +1,4 @@
-module LazyList
+module JsonStream.LazyList
 
 open FSharpx.Collections
 

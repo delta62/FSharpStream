@@ -1,8 +1,9 @@
-module NumberTests
+module JsonStream.Tests.NumberTests
 
 open Expecto
 open FSharpx.Collections
-open Tokenizer
+open JsonStream.Tokenizer
+open JsonStream.StateOps
 open FsCheck
 open ScienceGenerator
 

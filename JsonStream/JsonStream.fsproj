@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFrameworks>net45;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <DebugType>Portable</DebugType>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
@@ -14,7 +14,11 @@
   <ItemGroup>
     <None Include="App.config" />
     <Compile Include="LazyList.fs" />
+    <Compile Include="Character.fs" />
     <Compile Include="RState.fs" />
+    <Compile Include="StateOps.fs" />
+    <Compile Include="Numbers.fs" />
+    <Compile Include="Strings.fs" />
     <Compile Include="Tokenizer.fs" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />

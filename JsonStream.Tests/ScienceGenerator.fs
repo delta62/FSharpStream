@@ -1,4 +1,4 @@
-module ScienceGenerator
+module JsonStream.Tests.ScienceGenerator
 
 open FsCheck
 

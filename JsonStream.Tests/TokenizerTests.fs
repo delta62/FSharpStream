@@ -1,8 +1,9 @@
-module Tests
+module JsonStream.Tests.TokenizerTests
 
 open Expecto
 open FSharpx.Collections
-open Tokenizer
+open JsonStream.Tokenizer
+open JsonStream.StateOps
 
 let singletonList f xs =
   match LazyList.length xs with

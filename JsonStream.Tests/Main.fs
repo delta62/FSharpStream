@@ -1,4 +1,5 @@
-﻿module JsonStream.Tests
+﻿module JsonStream.Tests.Main
+
 open Expecto
 
 [<EntryPoint>]

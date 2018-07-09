@@ -1,8 +1,9 @@
-module StringTests
+module JsonStream.Tests.StringTests
 
 open Expecto
 open FSharpx.Collections
-open Tokenizer
+open JsonStream.Tokenizer
+open JsonStream.StateOps
 
 let stringToken x =
   let str = x.ToString()
@@ -26,6 +27,10 @@ let tests =
       let subject = stringToken "\"\\u10FC\""
       Expect.equal subject (Some "\u10FC") "Failed to tokenize \u10FC"
 
-    ptestCase "Tokenizes multi-character unicode escapes" <| fun _ ->
-      Expect.isTrue false "Failed to tokenize '\u1F60'"
+    testCase "Tokenizes multi-character unicode escapes" <| fun _ ->
+      let subject = stringToken "\"\\u0001\\uF3A9\""
+      Expect.equal subject (Some "\U00001F3A9") "Failed to tokenize '\U0001F3A9'"
+
+    ptestCase "Fails on invalid surrogate pairs" <| fun _ ->
+      Expect.isTrue false "Successfully tokenized an invalid surrogate pair"
   ]

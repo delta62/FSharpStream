@@ -1,4 +1,4 @@
-module RState
+module JsonStream.RState
 
 type RState<'s, 'a, 'err> = RState of ('s -> Result<('a * 's), 'err>)
 let runStateR (RState f) s = f s
