@@ -22,13 +22,17 @@ let unicodeEsc =
 let unicodeSequence =
   rstate {
     let! char1 = unicodeEsc
-    if isSurrogateLeader char1.Val then
+    if isSurrogateChar char1.Val then
+      do! expectChars [ '\\'; 'u'; ]
       let! char2 = unicodeEsc
-      return {
-        Line   = char1.Line;
-        Column = char1.Column;
-        Val    = sprintf "%c%c" char1.Val char2.Val
-      }
+      if isSurrogateChar char2.Val then
+        return {
+          Line   = char1.Line;
+          Column = char1.Column;
+          Val    = sprintf "%c%c" char1.Val char2.Val
+        }
+      else
+        return! unexpectedInput char2 |> fail
     else
       return {
         Line   = char1.Line;
@@ -63,7 +67,7 @@ let rec stringToken (builder: StringBuilder) =
     match nc.Val with
     | '\\' ->
       let! s = esc
-      builder.Append(s) |> ignore
+      builder.Append(s.Val) |> ignore
       return! stringToken builder
     | '"' ->
       return String (builder.ToString())

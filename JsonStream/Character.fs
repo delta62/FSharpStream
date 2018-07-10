@@ -38,6 +38,5 @@ let unescaped (x: char) =
   | c when c >= 0x5Du && c <= 0x10FFFFu -> true
   | _                                   -> false
 
-let isSurrogateLeader (c: char) =
-  let i = uint32 c
-  i >= 0xD800u && i <= 0xDFFFu
+let isSurrogateChar c =
+  c >= '\uD800' && c <= '\uDFFF'

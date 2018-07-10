@@ -6,11 +6,16 @@ open JsonStream.Tokenizer
 open JsonStream.StateOps
 
 let stringToken x =
-  let str = x.ToString()
-  let list = LazyList.ofSeq str |> tokenize
+  let list = LazyList.ofSeq x |> tokenize
   match list.TryHead with
     | Some (Ok ({ Token = String x})) -> Some x
     | _ -> None
+
+let failString x =
+  let list = LazyList.ofSeq x |> tokenize
+  match list.TryHead with
+  | Some (Error e) -> Error e
+  | _              -> Ok ()
 
 [<Tests>]
 let tests =
@@ -28,9 +33,14 @@ let tests =
       Expect.equal subject (Some "\u10FC") "Failed to tokenize \u10FC"
 
     testCase "Tokenizes multi-character unicode escapes" <| fun _ ->
-      let subject = stringToken "\"\\u0001\\uF3A9\""
-      Expect.equal subject (Some "\U00001F3A9") "Failed to tokenize '\U0001F3A9'"
+      let subject = stringToken "\"\\uD83D\\uDE0E\""
+      Expect.equal subject (Some "\U0001F60E") "Failed to tokenize '\U0001F60E'"
 
-    ptestCase "Fails on invalid surrogate pairs" <| fun _ ->
-      Expect.isTrue false "Successfully tokenized an invalid surrogate pair"
+    testCase "Fails on invalid surrogate pairs" <| fun _ ->
+      let subject = failString "\"\\uD83D\\u0032\""
+      Expect.isError subject "Successfully tokenized an invalid surrogate pair"
+
+    testCase "Fails to tokenize reserved points" <| fun _ ->
+      let subject = failString "\"\\uD83C\""
+      Expect.isError subject "Successfully tokenized reserved char"
   ]
