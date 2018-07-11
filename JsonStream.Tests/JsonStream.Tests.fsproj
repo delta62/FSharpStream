@@ -9,6 +9,7 @@
     <Compile Include="NumberTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="TokenizerTests.fs" />
+    <Compile Include="TokenStreamTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
