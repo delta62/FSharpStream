@@ -8,6 +8,7 @@
     <Compile Include="ScienceGenerator.fs" />
     <Compile Include="NumberTests.fs" />
     <Compile Include="StringTests.fs" />
+    <Compile Include="WhitespaceTests.fs" />
     <Compile Include="TokenizerTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

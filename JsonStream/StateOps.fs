@@ -15,6 +15,7 @@ type Token =
   | Null
   | String of string
   | Number of string
+  | Whitespace of string
 
 type ParseError = {
   Line    : uint32;
