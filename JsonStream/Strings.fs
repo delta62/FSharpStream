@@ -61,22 +61,19 @@ let esc =
       | _   -> unexpectedInput jv |> fail
   }
 
-let rec private stringTokenImpl (builder: StringBuilder) =
+let rec stringToken (builder: StringBuilder) =
   rstate {
     let! nc = nextChar
     match nc.Val with
     | '\\' ->
       let! s = esc
       builder.Append(s.Val) |> ignore
-      return! stringTokenImpl builder
+      return! stringToken builder
     | '"' ->
       return String (builder.ToString())
     | c when unescaped c ->
       builder.Append(c) |> ignore
-      return! stringTokenImpl builder
+      return! stringToken builder
     | _ ->
       return! unexpectedInput nc |> fail
   }
-
-let stringToken =
-  new StringBuilder() |> stringTokenImpl

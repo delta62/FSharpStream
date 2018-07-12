@@ -5,6 +5,7 @@ open RState
 open JsonStream.StateOps
 open Numbers
 open Strings
+open System.Text
 
 let private charsToJsonChars chars =
   let initialState = { Line = 1u; Column = 0u; Val = '0'; }
@@ -54,7 +55,7 @@ let private token =
       | 't' -> trueToken jc
       | 'f' -> falseToken jc
       | 'n' -> nullToken jc
-      | '"' -> stringToken |> fmap f
+      | '"' -> new StringBuilder() |> stringToken |> fmap f
       | c when numericLeader c ->
         fmap f (numericToken jc)
       | _   -> unexpectedInput jc |> fail

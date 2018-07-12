@@ -8,8 +8,12 @@ type StateBuilder() =
   member __.Return(x) =
     State (fun s -> x, s)
 
-  member __.Bind(f, x) =
-    ()
+  member __.Bind(State mx, f) =
+    let fn s =
+      let a, newState = mx s
+      let (State b) = f a
+      b newState
+    State fn
 
 let state = new StateBuilder()
 
