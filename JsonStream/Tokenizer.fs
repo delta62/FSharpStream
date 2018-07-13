@@ -1,8 +1,9 @@
 module JsonStream.Tokenizer
 
 open FSharpx.Collections
+open Character
 open RState
-open JsonStream.StateOps
+open StateOps
 open Numbers
 open Strings
 open System.Text
@@ -40,6 +41,17 @@ let private nullToken n =
     return tokenAtChar n Null
   }
 
+let private whitespaceToken c =
+  rstate {
+    let! chars = takeWhile (fun jc -> isWhitespace jc.Val)
+    return c :: chars
+    |> List.map (fun jc -> jc.Val)
+    |> List.toArray
+    |> System.String
+    |> Whitespace
+    |> tokenAtChar c
+  }
+
 let private token =
   rstate {
     let! jc = nextChar
@@ -58,6 +70,8 @@ let private token =
       | '"' -> new StringBuilder() |> stringToken |> fmap f
       | c when numericLeader c ->
         fmap f (numericToken jc)
+      | c when isWhitespace c ->
+        whitespaceToken jc
       | _   -> unexpectedInput jc |> fail
   }
 

@@ -40,3 +40,10 @@ let unescaped (x: char) =
 
 let isSurrogateChar c =
   c >= '\uD800' && c <= '\uDFFF'
+
+let isWhitespace = function
+| ' '
+| '\t'
+| '\n'
+| '\r' -> true
+| _    -> false
