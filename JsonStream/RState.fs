@@ -16,6 +16,8 @@ type RStateBuilder() =
 
   member __.ReturnFrom(x) = x
 
+  member __.Yield(x) = unit x
+
   member __.Bind(RState f, x) =
     let fn s =
       let pair = f s

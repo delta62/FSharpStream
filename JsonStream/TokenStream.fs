@@ -7,6 +7,12 @@ open JsonStream.RState
 type JsonContext = JsonRoot | JsonObject | JsonArray
 type Stream = LazyList<JsonToken> * LazyList<JsonContext>
 
+let listWrapper (list: LazyList<JsonToken>): LazyList<Result<JsonToken, ParseError>> =
+  let ctx = [ JsonRoot ]
+  let unfolder (state: LazyList<JsonToken>): Option<Result<JsonToken, ParseError> * LazyList<JsonToken>> =
+    None
+  LazyList.unfold unfolder list
+
 let tokenStream tokens =
   match tokens with
   | LazyList.Nil -> LazyList.ofArray [| Error { Line = 1u; Column = 1u; Message = "Input was empty"; } |]
@@ -65,6 +71,15 @@ let pushCtx x =
       return ()
   }
 
+let peekCtx: RState<Stream, JsonContext, ParseError> =
+  rstate {
+    let! _, ctx = get
+    return
+      match ctx with
+      | LazyList.Nil -> JsonRoot
+      | LazyList.Cons(h, _) -> h
+  }
+
 let rec consumeWhitespace =
   rstate {
     let! next = peek
@@ -85,28 +100,27 @@ let parseObject =
     return LazyList.empty
   }
 
-let parseTopLevel =
+let parseAny =
   rstate {
-    let! next = pop
-    match next.Token with
-    | LeftBracket ->
-      do! pushCtx JsonArray
-      return! parseArray
+    let! next, ctx = get
+    match next with
     | LeftCurly ->
-      do! pushCtx JsonObject
-      return! parseObject
-    | Comma
-    | Colon
-    | RightBracket
-    | RightCurly
-    | Whitespace _ ->
-      return! unexpectedToken |> fail
-    | String _
-    | Number _
-    | True
-    | False
-    | Null ->
-      return LazyList.ofList [ next ]
+      yield next
+      yield! parseObject
+    | LeftBracket ->
+      yield next
+
+    return LazyList.empty
+  }
+
+let parseToken =
+  rstate {
+    let! ctx = peekCtx
+    return!
+      match ctx with
+      | JsonRoot   -> parseAny
+      | JsonArray  -> parseArray
+      | JsonObject -> parseObject
   }
 
 let expectEof =
@@ -120,7 +134,7 @@ let expectEof =
 let parseJson =
   rstate {
     do! consumeWhitespace
-    let! item = parseTopLevel
+    let! item = parseToken
     do! consumeWhitespace
     do! expectEof
     return item
