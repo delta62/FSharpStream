@@ -8,7 +8,7 @@ open JsonStream.StateOps
 let stringToken x =
   let list = LazyList.ofSeq x |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Token = String x})) -> Some x
+    | Some (Ok ({ Val = String x})) -> Some x
     | _ -> None
 
 let failString x =

@@ -8,7 +8,7 @@ open JsonStream.StateOps
 let whitespaceToken x =
   let list = LazyList.ofSeq x |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Token = Whitespace x})) -> Some x
+    | Some (Ok ({ Val = Whitespace x})) -> Some x
     | _ -> None
 
 [<Tests>]

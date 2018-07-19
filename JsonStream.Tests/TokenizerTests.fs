@@ -9,7 +9,7 @@ let singletonList f xs =
   match LazyList.length xs with
   | 1 ->
     match LazyList.head xs with
-    | Ok x when f x.Token -> true
+    | Ok x when f x.Val -> true
     | _ -> false
   | _ -> false
 

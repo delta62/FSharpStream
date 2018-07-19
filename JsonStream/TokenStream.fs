@@ -1,141 +1,232 @@
 module JsonStream.TokenStream
 
 open FSharpx.Collections
-open JsonStream.StateOps
 open JsonStream.RState
+open JsonStream.StateOps
 
-type JsonContext = JsonRoot | JsonObject | JsonArray
-type Stream = LazyList<JsonToken> * LazyList<JsonContext>
+type JsonContext =
+  | Root
+  | Object
+  | ObjectKey
+  | ObjectColon
+  | ObjectValue
+  | Array
+  | ArrayValue
 
-let listWrapper (list: LazyList<JsonToken>): LazyList<Result<JsonToken, ParseError>> =
-  let ctx = [ JsonRoot ]
-  let unfolder (state: LazyList<JsonToken>): Option<Result<JsonToken, ParseError> * LazyList<JsonToken>> =
-    None
-  LazyList.unfold unfolder list
+type Stream = LazyList<JsonVal<Token>> * JsonContext list
 
-let tokenStream tokens =
-  match tokens with
-  | LazyList.Nil -> LazyList.ofArray [| Error { Line = 1u; Column = 1u; Message = "Input was empty"; } |]
-  | LazyList.Cons(_) ->
-    LazyList.empty
+let unexpectedEof = {
+  Line    = 0u;
+  Column  = 0u;
+  Message = "Unexpected end of input";
+}
 
-let unexpectedEof =
-  {
-    Line = 0u;
-    Column = 0u;
-    Message = "Unexpected eof"
-  }
+let unexpectedInput input = {
+  Line    = input.Line;
+  Column  = input.Column;
+  Message = sprintf "Unexpected input: %A" input;
+}
 
-let expectedEof =
-  {
-    Line = 0u;
-    Column = 0u;
-    Message = "Expected end of input";
-  }
+let invalidContext = {
+  Line = 0u;
+  Column = 0u;
+  Message = "invalid context"
+}
 
-let unexpectedToken =
-  {
-    Line = 0u;
-    Column = 0u;
-    Message = "Unexpected token"
-  }
-
-let pop: RState<Stream, JsonToken, ParseError> =
+let getToken: RState<Stream, JsonVal<Token>, ParseError> =
   rstate {
-    let! stream, ctx = get
-    match stream with
+    let! list, context = get
+    match list with
     | LazyList.Nil ->
       return! unexpectedEof |> fail
     | LazyList.Cons(h, t) ->
-      do! put (t, ctx)
+      do! put (t, context)
       return h
   }
 
-let peek =
+let getContext: RState<Stream, JsonContext, ParseError> =
   rstate {
-    let! stream, _ = get
-    match stream with
-    | LazyList.Nil -> return None
-    | LazyList.Cons(h, _) -> return Some h.Token
+    let! _, context = get
+    match List.tryHead context with
+    | Some head -> return head
+    | None      -> return! invalidContext |> fail
   }
 
-let pushCtx x =
+let pushContext ctx =
   rstate {
-    let! stream, ctx = get
-    match ctx with
-    | LazyList.Nil ->
-      do! put (stream, LazyList.ofList [ x ])
-      return ()
+    let! list, context = get
+    do! put (list, ctx :: context)
+  }
+
+let popContext =
+  rstate {
+    let! list, context = get
+    match context with
+    | [ ] ->
+      return! invalidContext |> fail
+    | x :: xs ->
+      do! put (list, xs)
+      return x
+  }
+
+let replaceCtx expectedToken newctx =
+  rstate {
+    let! next = getToken
+    match next with
+    | x when x.Val = expectedToken ->
+      let! _ = popContext
+      do! pushContext newctx
+      return next
     | _ ->
-      do! put (stream, LazyList.cons x ctx)
-      return ()
+      return! unexpectedInput next |> fail
   }
 
-let peekCtx: RState<Stream, JsonContext, ParseError> =
+let replaceCtxFn f newCtx =
   rstate {
-    let! _, ctx = get
-    return
-      match ctx with
-      | LazyList.Nil -> JsonRoot
-      | LazyList.Cons(h, _) -> h
+    let! result = f
+    let! _ = popContext
+    do! pushContext newCtx
+    return result
   }
 
-let rec consumeWhitespace =
+let value: RState<Stream, JsonVal<Token>, ParseError> =
   rstate {
-    let! next = peek
-    match next with
-    | Some (Whitespace _) ->
-      let! _ = pop
-      return! consumeWhitespace
-    | _ -> return ()
-  }
-
-let parseArray =
-  rstate {
-    return LazyList.empty
-  }
-
-let parseObject =
-  rstate {
-    return LazyList.empty
-  }
-
-let parseAny =
-  rstate {
-    let! next, ctx = get
-    match next with
+    let! next = getToken
+    match next.Val with
+    | String _
+    | Number _
+    | True
+    | False
+    | Null ->
+      return next
     | LeftCurly ->
-      yield next
-      yield! parseObject
+      do! pushContext Object
+      return next
     | LeftBracket ->
-      yield next
-
-    return LazyList.empty
+      do! pushContext Array
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
   }
 
-let parseToken =
+let object =
   rstate {
-    let! ctx = peekCtx
-    return!
-      match ctx with
-      | JsonRoot   -> parseAny
-      | JsonArray  -> parseArray
-      | JsonObject -> parseObject
+    let! next = getToken
+    match next.Val with
+    | String _   ->
+      do! pushContext ObjectKey
+      return next
+    | RightCurly ->
+      let! _ = popContext
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
   }
 
-let expectEof =
+let objectVal =
   rstate {
-    let! next = peek
-    match next with
-    | None -> return ()
-    | _    -> return! expectedEof |> fail
+    let! next = getToken
+    match next.Val with
+    | RightCurly ->
+      let! _ = popContext
+      return next
+    | Comma ->
+      let! _ = popContext
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
   }
 
-let parseJson =
+let array =
   rstate {
-    do! consumeWhitespace
-    let! item = parseToken
-    do! consumeWhitespace
-    do! expectEof
-    return item
+    let! next = getToken
+    match next.Val with
+    | String _
+    | Number _
+    | True
+    | False
+    | Null ->
+      do! pushContext ArrayValue
+      return next
+    | LeftBracket ->
+      do! pushContext Array
+      return next
+    | LeftCurly ->
+      do! pushContext Object
+      return next
+    | RightBracket ->
+      let! _ = popContext
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
   }
+
+let arrayVal =
+  rstate {
+    let! next = getToken
+    match next.Val with
+    | Comma ->
+      let! _ = popContext
+      return next
+    | RightBracket ->
+      let! _ = popContext
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
+  }
+
+let token =
+  rstate {
+    let! list, ctx = get
+    match list with
+    | LazyList.Nil ->
+      return! unexpectedEof |> fail
+    | LazyList.Cons(h, _) ->
+      match h.Val with
+      | Whitespace _ ->
+        let! _ = getToken
+        return h
+      | _ ->
+        return!
+          match List.head ctx with
+          | Root        -> value
+          | Object      -> object
+          | ObjectKey   -> replaceCtx Colon ObjectColon
+          | ObjectColon -> replaceCtxFn value ObjectValue
+          | ObjectValue -> objectVal
+          | Array       -> array
+          | ArrayValue  -> arrayVal
+  }
+
+let emptyStream list =
+  let finder = function
+  | Ok ({ Val = Whitespace _ }) -> false
+  | Ok _                        -> true
+  | Error _                     -> false
+
+  let result = LazyList.tryFind finder list
+
+  match result with
+  | Some _ -> false
+  | None   -> true
+
+let tokenStream list =
+  let unfolder state =
+    match fst state with
+    | LazyList.Nil ->
+      None
+    | LazyList.Cons(_) ->
+      let res = runStateR token state
+      match res with
+      | Ok (token, statePair) ->
+        Some (Ok token, statePair)
+      | Error e ->
+        Some (Error e, (LazyList.empty, [ ]))
+
+  let mappedList = LazyList.unfold unfolder (list, [ Root ])
+
+  // Empty JSON documents are invalid
+  if emptyStream mappedList then
+    LazyList.ofList [ Error unexpectedEof ]
+  else
+    mappedList
