@@ -15,6 +15,7 @@
     <Compile Include="Numbers.fs" />
     <Compile Include="Strings.fs" />
     <Compile Include="Tokenizer.fs" />
+    <Compile Include="TokenStream.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharpx.Collections" Version="1.17.0">

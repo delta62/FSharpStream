@@ -11,7 +11,7 @@ let singleNumber x =
   let str = x.ToString()
   let list = LazyList.ofSeq str |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Token = Number x})) -> x = str
+    | Some (Ok ({ Val = Number x})) -> x = str
     | _ -> false
 
 let cfg =

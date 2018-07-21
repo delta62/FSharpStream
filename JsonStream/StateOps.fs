@@ -23,24 +23,17 @@ type ParseError = {
   Message : string;
 }
 
-type JsonToken = {
-  Line   : uint32;
-  Column : uint32;
-  Token  : Token;
-}
-
 type JsonVal<'a> = {
   Line   : uint32;
   Column : uint32;
   Val    : 'a;
 }
 
-let unexpectedInput char =
-  {
-    Line    = char.Line;
-    Column  = char.Column;
-    Message = sprintf "Unexpected input: %c" char.Val;
-  }
+let unexpectedInput char = {
+  Line    = char.Line;
+  Column  = char.Column;
+  Message = sprintf "Unexpected input: %c" char.Val;
+}
 
 let nextChar =
   RState (function

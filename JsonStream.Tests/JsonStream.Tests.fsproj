@@ -10,14 +10,16 @@
     <Compile Include="StringTests.fs" />
     <Compile Include="WhitespaceTests.fs" />
     <Compile Include="TokenizerTests.fs" />
+    <Compile Include="TokenStreamTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="8.*" />
+    <PackageReference Include="Expecto" Version="8.2.0" />
     <PackageReference Include="Expecto.FsCheck" Version="8.1.1" />
     <PackageReference Include="FSharpx.Collections" Version="1.17.0">
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
+    <PackageReference Include="Logary.Adapters.Facade" Version="5.0.0-beta.21" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.2" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.5.0" />
   </ItemGroup>

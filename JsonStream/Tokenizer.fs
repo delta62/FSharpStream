@@ -16,12 +16,11 @@ let private charsToJsonChars chars =
     | _    -> { Line = state.Line; Column = state.Column + 1u; Val = item; }
   LazyList.scan folder initialState chars |> LazyList.skip 1
 
-let private tokenAtChar char scalar =
-  {
-    Line   = char.Line;
-    Column = char.Column;
-    Token  = scalar;
-  }
+let private tokenAtChar char scalar = {
+  Line   = char.Line;
+  Column = char.Column;
+  Val    = scalar;
+}
 
 let private trueToken t =
   rstate {
@@ -43,7 +42,7 @@ let private nullToken n =
 
 let private whitespaceToken c =
   rstate {
-    let! chars = takeWhile (fun jc -> isWhitespace jc.Val)
+    let! chars = takeWhile <| fun jc -> isWhitespace jc.Val
     return c :: chars
     |> List.map (fun jc -> jc.Val)
     |> List.toArray

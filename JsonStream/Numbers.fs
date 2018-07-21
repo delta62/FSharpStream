@@ -5,7 +5,7 @@ open StateOps
 
 let rec digits acc =
   rstate {
-    let! jc = maybeNextChar (fun jc -> System.Char.IsDigit jc.Val)
+    let! jc = maybeNextChar <| fun jc -> System.Char.IsDigit jc.Val
     match jc with
     | Some c -> return! digits (c.Val :: acc)
     | None   -> return List.rev acc
@@ -32,10 +32,10 @@ let frac =
 
 let exp =
   rstate {
-    let! e = maybeNextChar (fun c -> c.Val = 'e' || c.Val = 'E')
+    let! e = maybeNextChar <| fun c -> c.Val = 'e' || c.Val = 'E'
     match e with
     | Some jc ->
-      let! signOpt = maybeNextChar (fun c -> c.Val = '+' || c.Val = '-')
+      let! signOpt = maybeNextChar <| fun c -> c.Val = '+' || c.Val = '-'
       let sign =
         match signOpt with
         | Some jc -> [ jc.Val ]
@@ -48,7 +48,7 @@ let exp =
 
 let sign =
   rstate {
-    let! sign = maybeNextChar (fun c -> c.Val = '-')
+    let! sign = maybeNextChar <| fun c -> c.Val = '-'
     match sign with
     | Some x -> return [ x.Val ]
     | None   -> return [ ]
