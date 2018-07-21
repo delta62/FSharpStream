@@ -4,6 +4,9 @@ open FSharpx.Collections
 open JsonStream.RState
 open JsonStream.StateOps
 
+type JsonToken = Result<JsonVal<Token>, ParseError>
+type JsonList = LazyList<JsonToken>
+
 type JsonContext =
   | Root
   | Object
@@ -12,8 +15,6 @@ type JsonContext =
   | ObjectValue
   | Array
   | ArrayValue
-
-type Stream = LazyList<JsonVal<Token>> * JsonContext list
 
 let unexpectedEof = {
   Line    = 0u;
@@ -33,20 +34,9 @@ let invalidContext = {
   Message = "invalid context"
 }
 
-let getToken: RState<Stream, JsonVal<Token>, ParseError> =
+let getContext: RState<JsonContext list, JsonContext, ParseError> =
   rstate {
-    let! list, context = get
-    match list with
-    | LazyList.Nil ->
-      return! unexpectedEof |> fail
-    | LazyList.Cons(h, t) ->
-      do! put (t, context)
-      return h
-  }
-
-let getContext: RState<Stream, JsonContext, ParseError> =
-  rstate {
-    let! _, context = get
+    let! context = get
     match List.tryHead context with
     | Some head -> return head
     | None      -> return! invalidContext |> fail
@@ -54,31 +44,26 @@ let getContext: RState<Stream, JsonContext, ParseError> =
 
 let pushContext ctx =
   rstate {
-    let! list, context = get
-    do! put (list, ctx :: context)
+    let! context = get
+    do! put (ctx :: context)
   }
 
-let popContext =
+let popContext: RState<JsonContext list, JsonContext, ParseError> =
   rstate {
-    let! list, context = get
+    let! context = get
     match context with
     | [ ] ->
       return! invalidContext |> fail
     | x :: xs ->
-      do! put (list, xs)
+      do! put xs
       return x
   }
 
-let replaceCtx expectedToken newctx =
+let replaceCtx newctx =
   rstate {
-    let! next = getToken
-    match next with
-    | x when x.Val = expectedToken ->
-      let! _ = popContext
-      do! pushContext newctx
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
+    let! _ = popContext
+    do! pushContext newctx
+    return newctx
   }
 
 let replaceCtxFn f newCtx =
@@ -89,9 +74,8 @@ let replaceCtxFn f newCtx =
     return result
   }
 
-let value: RState<Stream, JsonVal<Token>, ParseError> =
+let value next : RState<JsonContext list, JsonVal<Token>, ParseError> =
   rstate {
-    let! next = getToken
     match next.Val with
     | String _
     | Number _
@@ -109,9 +93,8 @@ let value: RState<Stream, JsonVal<Token>, ParseError> =
       return! unexpectedInput next |> fail
   }
 
-let object =
+let object next =
   rstate {
-    let! next = getToken
     match next.Val with
     | String _   ->
       do! pushContext ObjectKey
@@ -123,13 +106,10 @@ let object =
       return! unexpectedInput next |> fail
   }
 
-let objectVal =
+let objectVal next =
   rstate {
-    let! next = getToken
     match next.Val with
-    | RightCurly ->
-      let! _ = popContext
-      return next
+    | RightCurly
     | Comma ->
       let! _ = popContext
       return next
@@ -137,9 +117,8 @@ let objectVal =
       return! unexpectedInput next |> fail
   }
 
-let array =
+let array next =
   rstate {
-    let! next = getToken
     match next.Val with
     | String _
     | Number _
@@ -161,13 +140,10 @@ let array =
       return! unexpectedInput next |> fail
   }
 
-let arrayVal =
+let arrayVal next =
   rstate {
-    let! next = getToken
     match next.Val with
-    | Comma ->
-      let! _ = popContext
-      return next
+    | Comma
     | RightBracket ->
       let! _ = popContext
       return next
@@ -175,27 +151,25 @@ let arrayVal =
       return! unexpectedInput next |> fail
   }
 
-let token =
+let token tok =
   rstate {
-    let! list, ctx = get
-    match list with
-    | LazyList.Nil ->
-      return! unexpectedEof |> fail
-    | LazyList.Cons(h, _) ->
-      match h.Val with
-      | Whitespace _ ->
-        let! _ = getToken
-        return h
-      | _ ->
-        return!
-          match List.head ctx with
-          | Root        -> value
-          | Object      -> object
-          | ObjectKey   -> replaceCtx Colon ObjectColon
-          | ObjectColon -> replaceCtxFn value ObjectValue
-          | ObjectValue -> objectVal
-          | Array       -> array
-          | ArrayValue  -> arrayVal
+    let! ctx = getContext
+    match tok.Val with
+    | Whitespace _ -> return tok
+    | _ ->
+      match ctx with
+      | Root -> return! value tok
+      | Object -> return! object tok
+      | ObjectKey ->
+        let! _ = replaceCtx ObjectColon
+        return tok
+      | ObjectColon ->
+        let! v = value tok
+        let! _ = replaceCtx ObjectValue
+        return v
+      | ObjectValue -> return! objectVal tok
+      | Array -> return! array tok
+      | ArrayValue -> return! arrayVal tok
   }
 
 let emptyStream list =
@@ -210,18 +184,18 @@ let emptyStream list =
   | Some _ -> false
   | None   -> true
 
-let tokenStream list =
-  let unfolder state =
-    match fst state with
-    | LazyList.Nil ->
-      None
-    | LazyList.Cons(_) ->
-      let res = runStateR token state
-      match res with
-      | Ok (token, statePair) ->
-        Some (Ok token, statePair)
-      | Error e ->
-        Some (Error e, (LazyList.empty, [ ]))
+let tokenStream (list: JsonList) =
+  let unfolder (state: JsonList * JsonContext list): (JsonToken * (JsonList * JsonContext list)) option =
+    match LazyList.tryHead (fst state) with
+    | None -> None
+    | Some head ->
+      match head with
+      | Ok tok ->
+        let result = runStateR (token tok) (snd state)
+        match result with
+        | Ok (token, list) -> Some (Ok token, ((LazyList.tail (fst state)), list))
+        | Error e          -> Some (Error e, (LazyList.empty, [ ]))
+      | Error e -> Some (Error e, (LazyList.empty, [ ]))
 
   let mappedList = LazyList.unfold unfolder (list, [ Root ])
 
