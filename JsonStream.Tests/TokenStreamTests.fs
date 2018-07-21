@@ -60,4 +60,19 @@ let tests =
       let subject = "{ }" |> LazyList.ofSeq |> tokenize |> tokenStream
       let expected = [ LeftCurly; Whitespace " "; RightCurly; ]
       Expect.isTrue (streamEquals subject expected) "Failed to parse an empty object"
+
+    testCase "Parses an empty array literal" <| fun _ ->
+      let subject = "[ ]" |> LazyList.ofSeq |> tokenize |> tokenStream
+      let expected = [ LeftBracket; Whitespace " "; RightBracket; ]
+      Expect.isTrue (streamEquals subject expected) "Failed to parse an empty array"
+
+    testCase "Parses an object with values" <| fun _ ->
+      let subject = "{\"foo\": \"bar\"}" |> LazyList.ofSeq |> tokenize |> tokenStream
+      let expected = [ LeftCurly; String "foo"; Colon; Whitespace " "; String "bar"; RightCurly; ]
+      Expect.isTrue (streamEquals subject expected) "Failed to parse object with keys"
+
+    testCase "Parses an array with values" <| fun _ ->
+      let subject = "[ 1, \"foo\" ]" |> LazyList.ofSeq |> tokenize |> tokenStream
+      let expected = [ LeftBracket; Whitespace " "; Number "1"; Comma; Whitespace " "; String "foo"; Whitespace " "; RightBracket; ]
+      Expect.isTrue (streamEquals subject expected) "Failed to parse array with values"
   ]
