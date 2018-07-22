@@ -32,6 +32,14 @@ let rec streamEquals actual expected =
     x.Val = y && streamEquals xs ys
   | _ -> false
 
+let scalarInputs = [
+  ("null",    Null);
+  ("true",    True);
+  ("false",   False);
+  ("3.14159", Number "3.14159");
+  ("\"foo\"", String "foo");
+]
+
 [<Tests>]
 let tests =
   testList "TokenStream" [
@@ -78,4 +86,10 @@ let tests =
       let subject = "[ 1, \"foo\" ]" |> toStream
       let expected = [ LeftBracket; Whitespace " "; Number "1"; Comma; Whitespace " "; String "foo"; Whitespace " "; RightBracket; ]
       Expect.isTrue (streamEquals subject expected) "Failed to parse array with values"
+
+    testList "Parses top-level scalar inputs" (List.map (fun (input, output) ->
+      testCase (sprintf "Parses literal \"%s\"" input) <| fun _ ->
+        let subject = input |> toStream
+        let expected = [ output; ]
+        Expect.isTrue (streamEquals subject expected) "Failed to parse scalar token") scalarInputs)
   ]
