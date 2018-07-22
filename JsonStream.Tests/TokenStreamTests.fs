@@ -92,4 +92,18 @@ let tests =
         let subject = input |> toStream
         let expected = [ output; ]
         Expect.isTrue (streamEquals subject expected) "Failed to parse scalar token") scalarInputs)
+
+    testCase "Fails to parse unclosed contexts" <| fun _ ->
+      let subject = "[1" |> toStream
+      Expect.isOk (LazyList.head subject) "Failed to parse top level array"
+      Expect.isOk (subject |> LazyList.skip 1 |> LazyList.head) "Failed to parse array value"
+      Expect.isError (subject |> LazyList.skip 3 |> LazyList.head) "Allowed unclosed array"
+
+    testCase "Fails to parse unclosed objects" <| fun _ ->
+      let subject = "{\"foo\":\"bar\"" |> toStream
+      Expect.isOk (LazyList.head subject) "Failed to parse top level object"
+      Expect.isOk (subject |> LazyList.skip 1 |> LazyList.head) "Failed to parse object key"
+      Expect.isOk (subject |> LazyList.skip 2 |> LazyList.head) "Failed to parse object colon"
+      Expect.isOk (subject |> LazyList.skip 3 |> LazyList.head) "Failed to parse object value"
+      Expect.isError (subject |> LazyList.skip 4 |> LazyList.head) "Allowed unclosed object"
   ]
