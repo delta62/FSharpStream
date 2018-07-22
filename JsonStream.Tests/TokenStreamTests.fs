@@ -32,6 +32,15 @@ let rec streamEquals actual expected =
     x.Val = y && streamEquals xs ys
   | _ -> false
 
+let rec failStream numOks stream =
+  match numOks, LazyList.head stream with
+  | 0, Error _ ->
+    true
+  | _, Ok _ ->
+    failStream (numOks - 1) (LazyList.tail stream)
+  | _ ->
+    false
+
 let scalarInputs = [
   ("null",    Null);
   ("true",    True);
@@ -106,4 +115,12 @@ let tests =
       Expect.isOk (subject |> LazyList.skip 2 |> LazyList.head) "Failed to parse object colon"
       Expect.isOk (subject |> LazyList.skip 3 |> LazyList.head) "Failed to parse object value"
       Expect.isError (subject |> LazyList.skip 4 |> LazyList.head) "Allowed unclosed object"
+
+    testCase "Fails to parse unmatched right bracket" <| fun _ ->
+      let subject = "{\"foo\":]}" |> toStream
+      Expect.isTrue (failStream 3 subject) "Allowed unmatched right bracket"
+
+    testCase "Fails to parse unmatched right curly" <| fun _ ->
+      let subject = "[}" |> toStream
+      Expect.isTrue (failStream 1 subject) "Allowed unmatched right curly"
   ]
