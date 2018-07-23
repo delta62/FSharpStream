@@ -109,7 +109,10 @@ let object next =
 let objectVal next =
   rstate {
     match next.Val with
-    | RightCurly
+    | RightCurly ->
+      let! _ = popContext // ObjectVal
+      let! _ = popContext // Object
+      return next
     | Comma ->
       let! _ = popContext
       return next
@@ -143,9 +146,12 @@ let array next =
 let arrayVal next =
   rstate {
     match next.Val with
-    | Comma
+    | Comma ->
+      let! _ = popContext // Pop ArrayVal
+      return next
     | RightBracket ->
-      let! _ = popContext
+      let! _ = popContext // Pop ArrayVal
+      let! _ = popContext // Pop Array
       return next
     | _ ->
       return! unexpectedInput next |> fail
@@ -184,10 +190,14 @@ let emptyStream list =
   | Some _ -> false
   | None   -> true
 
-let tokenStream (list: JsonList) =
-  let unfolder (state: JsonList * JsonContext list): (JsonToken * (JsonList * JsonContext list)) option =
+let tokenStream list =
+  let unfolder state =
     match LazyList.tryHead (fst state) with
-    | None -> None
+    | None ->
+      // Ensure that there is no unclosed context
+      match snd state with
+      | [ Root ] -> None
+      | _   -> Some (Error unexpectedEof, (LazyList.empty, [ ]))
     | Some head ->
       match head with
       | Ok tok ->
@@ -199,7 +209,7 @@ let tokenStream (list: JsonList) =
 
   let mappedList = LazyList.unfold unfolder (list, [ Root ])
 
-  // Empty JSON documents are invalid
+  // Empty JSON documents are invalid.
   if emptyStream mappedList then
     LazyList.ofList [ Error unexpectedEof ]
   else
