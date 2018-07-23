@@ -1,9 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <DebugType>Portable</DebugType>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
@@ -13,12 +11,10 @@
     <Compile Include="StateOps.fs" />
     <Compile Include="Numbers.fs" />
     <Compile Include="Strings.fs" />
-    <Compile Include="Tokenizer.fs" />
     <Compile Include="TokenStream.fs" />
+    <Compile Include="Tokenizer.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharpx.Collections" Version="1.17.0">
-      <NoWarn>NU1701</NoWarn>
-    </PackageReference>
+    <PackageReference Include="FSharpx.Collections" Version="1.17.0" />
   </ItemGroup>
 </Project>

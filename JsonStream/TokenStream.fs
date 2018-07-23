@@ -1,7 +1,6 @@
 module JsonStream.TokenStream
 
 open FSharpx.Collections
-open JsonStream.RState
 open JsonStream.StateOps
 
 type JsonToken = Result<JsonVal<Token>, ParseError>
@@ -16,201 +15,109 @@ type JsonContext =
   | Array
   | ArrayValue
 
-let unexpectedEof = {
-  Line    = 0u;
-  Column  = 0u;
-  Message = "Unexpected end of input";
-}
-
-let unexpectedInput input = {
-  Line    = input.Line;
-  Column  = input.Column;
-  Message = sprintf "Unexpected input: %A" input;
-}
-
-let invalidContext = {
-  Line = 0u;
-  Column = 0u;
-  Message = "invalid context"
-}
-
-let getContext: RState<JsonContext list, JsonContext, ParseError> =
-  rstate {
-    let! context = get
-    match List.tryHead context with
-    | Some head -> return head
-    | None      -> return! invalidContext |> fail
+let unexpectedEof =
+  Error {
+    Line    = 0u;
+    Column  = 0u;
+    Message = "Unexpected end of input";
   }
 
-let pushContext ctx =
-  rstate {
-    let! context = get
-    do! put (ctx :: context)
+let unexpectedInput input =
+ Error {
+    Line    = input.Line;
+    Column  = input.Column;
+    Message = sprintf "Unexpected input: %A" input.Val;
   }
 
-let popContext: RState<JsonContext list, JsonContext, ParseError> =
-  rstate {
-    let! context = get
-    match context with
-    | [ ] ->
-      return! invalidContext |> fail
-    | x :: xs ->
-      do! put xs
-      return x
-  }
+let value token ctx =
+  match token.Val with
+  | String _
+  | Number _
+  | True
+  | False
+  | Null        -> Ok token, ctx
+  | LeftCurly   -> Ok token, Object :: ctx
+  | LeftBracket -> Ok token, Array :: ctx
+  | _           -> unexpectedInput token, ctx
 
-let replaceCtx newctx =
-  rstate {
-    let! _ = popContext
-    do! pushContext newctx
-    return newctx
-  }
+let object token ctx =
+  match token.Val with
+  | String _   -> Ok token, ObjectKey :: ctx
+  | RightCurly -> Ok token, List.tail ctx
+  | _          -> unexpectedInput token, ctx
 
-let replaceCtxFn f newCtx =
-  rstate {
-    let! result = f
-    let! _ = popContext
-    do! pushContext newCtx
-    return result
-  }
+let objectVal token ctx =
+  match token.Val with
+  | RightCurly -> Ok token, List.skip 2 ctx
+  | Comma      -> Ok token, List.tail ctx
+  | _          -> unexpectedInput token, ctx
 
-let value next : RState<JsonContext list, JsonVal<Token>, ParseError> =
-  rstate {
-    match next.Val with
-    | String _
-    | Number _
-    | True
-    | False
-    | Null ->
-      return next
-    | LeftCurly ->
-      do! pushContext Object
-      return next
-    | LeftBracket ->
-      do! pushContext Array
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
-  }
+let array token ctx =
+  match token.Val with
+  | RightBracket -> Ok token, List.tail ctx
+  | _            -> value token ctx
 
-let object next =
-  rstate {
-    match next.Val with
-    | String _   ->
-      do! pushContext ObjectKey
-      return next
-    | RightCurly ->
-      let! _ = popContext
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
-  }
+let arrayVal token ctx =
+  match token.Val with
+  | Comma        -> Ok token, List.tail ctx
+  | RightBracket -> Ok token, List.skip 2 ctx
+  | _            -> unexpectedInput token, ctx
 
-let objectVal next =
-  rstate {
-    match next.Val with
-    | RightCurly ->
-      let! _ = popContext // ObjectVal
-      let! _ = popContext // Object
-      return next
-    | Comma ->
-      let! _ = popContext
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
-  }
+let objectKey token ctx =
+  match token.Val with
+  | Colon ->
+    let newctx = ObjectColon :: (List.tail ctx)
+    Ok token, newctx
+  | _ ->
+    unexpectedInput token, ctx
 
-let array next =
-  rstate {
-    match next.Val with
-    | String _
-    | Number _
-    | True
-    | False
-    | Null ->
-      do! pushContext ArrayValue
-      return next
-    | LeftBracket ->
-      do! pushContext Array
-      return next
-    | LeftCurly ->
-      do! pushContext Object
-      return next
-    | RightBracket ->
-      let! _ = popContext
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
-  }
-
-let arrayVal next =
-  rstate {
-    match next.Val with
-    | Comma ->
-      let! _ = popContext // Pop ArrayVal
-      return next
-    | RightBracket ->
-      let! _ = popContext // Pop ArrayVal
-      let! _ = popContext // Pop Array
-      return next
-    | _ ->
-      return! unexpectedInput next |> fail
-  }
-
-let token tok =
-  rstate {
-    let! ctx = getContext
-    match tok.Val with
-    | Whitespace _ -> return tok
-    | _ ->
-      match ctx with
-      | Root -> return! value tok
-      | Object -> return! object tok
-      | ObjectKey ->
-        let! _ = replaceCtx ObjectColon
-        return tok
-      | ObjectColon ->
-        let! v = value tok
-        let! _ = replaceCtx ObjectValue
-        return v
-      | ObjectValue -> return! objectVal tok
-      | Array -> return! array tok
-      | ArrayValue -> return! arrayVal tok
-  }
+let token tok ctx =
+  match tok.Val with
+  | Whitespace _ -> Ok tok, ctx
+  | _ ->
+    let f =
+      match List.head ctx with
+      | Root        -> value
+      | Object      -> object
+      | ObjectKey   -> objectKey
+      | ObjectColon -> value
+      | ObjectValue -> objectVal
+      | Array       -> array
+      | ArrayValue  -> arrayVal
+    f tok ctx
 
 let emptyStream list =
   let finder = function
   | Ok ({ Val = Whitespace _ }) -> false
-  | Ok _                        -> true
   | Error _                     -> false
+  | Ok _                        -> true
 
-  let result = LazyList.tryFind finder list
+  list |> LazyList.tryFind finder |> Option.isNone
 
-  match result with
-  | Some _ -> false
-  | None   -> true
+let cleanEofOrFail ctx =
+  match ctx with
+  | [ Root; ] -> None
+  | _         -> Some (unexpectedEof, (LazyList.empty, [ ]))
+
+let validateToken tok contextList tokenList =
+  match tok with
+  | Ok tok ->
+    let result = token tok contextList
+    match result with
+    | Ok token, list -> Some (Ok token, ((LazyList.tail tokenList), list))
+    | Error e, _     -> Some (Error e, (LazyList.empty, [ ]))
+  | Error e -> Some (Error e, (LazyList.empty, [ ]))
 
 let tokenStream list =
-  let unfolder state =
-    match LazyList.tryHead (fst state) with
-    | None ->
-      // Ensure that there is no unclosed context
-      match snd state with
-      | [ Root ] -> None
-      | _   -> Some (Error unexpectedEof, (LazyList.empty, [ ]))
-    | Some head ->
-      match head with
-      | Ok tok ->
-        let result = runStateR (token tok) (snd state)
-        match result with
-        | Ok (token, list) -> Some (Ok token, ((LazyList.tail (fst state)), list))
-        | Error e          -> Some (Error e, (LazyList.empty, [ ]))
-      | Error e -> Some (Error e, (LazyList.empty, [ ]))
+  let unfolder (tokenList, contextList) =
+    match LazyList.tryHead tokenList with
+    | None      -> cleanEofOrFail contextList
+    | Some head -> validateToken head contextList tokenList
 
   let mappedList = LazyList.unfold unfolder (list, [ Root ])
 
   // Empty JSON documents are invalid.
   if emptyStream mappedList then
-    LazyList.ofList [ Error unexpectedEof ]
+    LazyList.ofList [ unexpectedEof ]
   else
     mappedList
