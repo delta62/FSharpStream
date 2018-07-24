@@ -2,6 +2,7 @@ module JsonStream.TokenStream
 
 open FSharpx.Collections
 open JsonStream.StateOps
+open System.Runtime.InteropServices.ComTypes
 
 type JsonToken = Result<JsonVal<Token>, ParseError>
 type JsonList = LazyList<JsonToken>
@@ -35,52 +36,56 @@ let value token ctx =
   | Number _
   | True
   | False
-  | Null        -> Ok token, ctx
-  | LeftCurly   -> Ok token, Object :: ctx
-  | LeftBracket -> Ok token, Array :: ctx
-  | _           -> unexpectedInput token, ctx
+  | Null        -> Ok (token, ctx)
+  | LeftCurly   -> Ok (token, Object :: ctx)
+  | LeftBracket -> Ok (token, Array :: ctx)
+  | _           -> unexpectedInput token
 
 let object token ctx =
   match token.Val with
-  | String _   -> Ok token, ObjectKey :: ctx
-  | RightCurly -> Ok token, List.tail ctx
-  | _          -> unexpectedInput token, ctx
+  | String _   -> Ok (token, ObjectKey :: ctx)
+  | RightCurly -> Ok (token, List.tail ctx)
+  | _          -> unexpectedInput token
 
 let objectVal token ctx =
   match token.Val with
-  | RightCurly -> Ok token, List.skip 2 ctx
-  | Comma      -> Ok token, List.tail ctx
-  | _          -> unexpectedInput token, ctx
+  | RightCurly -> Ok (token, List.skip 2 ctx)
+  | Comma      -> Ok (token, List.tail ctx)
+  | _          -> unexpectedInput token
 
 let array token ctx =
   match token.Val with
-  | RightBracket -> Ok token, List.tail ctx
-  | _            -> value token ctx
+  | RightBracket -> Ok (token, List.tail ctx)
+  | _ ->
+    value token ctx |> Result.map (fun (t, c) -> t, ArrayValue :: c)
 
 let arrayVal token ctx =
   match token.Val with
-  | Comma        -> Ok token, List.tail ctx
-  | RightBracket -> Ok token, List.skip 2 ctx
-  | _            -> unexpectedInput token, ctx
+  | Comma        -> Ok (token, List.tail ctx)
+  | RightBracket -> Ok (token, List.skip 2 ctx)
+  | _            -> unexpectedInput token
 
 let objectKey token ctx =
   match token.Val with
   | Colon ->
     let newctx = ObjectColon :: (List.tail ctx)
-    Ok token, newctx
+    Ok (token, newctx)
   | _ ->
-    unexpectedInput token, ctx
+    unexpectedInput token
+
+let objectColon token ctx =
+  value token ctx |> Result.map (fun (t, c) -> t, List.tail c)
 
 let token tok ctx =
   match tok.Val with
-  | Whitespace _ -> Ok tok, ctx
+  | Whitespace _ -> Ok (tok, ctx)
   | _ ->
     let f =
       match List.head ctx with
       | Root        -> value
       | Object      -> object
       | ObjectKey   -> objectKey
-      | ObjectColon -> value
+      | ObjectColon -> objectColon
       | ObjectValue -> objectVal
       | Array       -> array
       | ArrayValue  -> arrayVal
@@ -99,20 +104,19 @@ let cleanEofOrFail ctx =
   | [ Root; ] -> None
   | _         -> Some (unexpectedEof, (LazyList.empty, [ ]))
 
-let validateToken tok contextList tokenList =
-  match tok with
-  | Ok tok ->
-    let result = token tok contextList
-    match result with
-    | Ok token, list -> Some (Ok token, ((LazyList.tail tokenList), list))
-    | Error e, _     -> Some (Error e, (LazyList.empty, [ ]))
-  | Error e -> Some (Error e, (LazyList.empty, [ ]))
-
 let tokenStream list =
   let unfolder (tokenList, contextList) =
     match LazyList.tryHead tokenList with
-    | None      -> cleanEofOrFail contextList
-    | Some head -> validateToken head contextList tokenList
+    | None ->
+      cleanEofOrFail contextList
+    | Some head ->
+      let result =
+        head
+        |> Result.bind (fun tok -> token tok contextList)
+        |> Result.map (fun (t, ctx) -> t, ((LazyList.tail tokenList), ctx))
+      match result with
+      | Ok (token, state) -> Some (Ok token, state)
+      | Error e           -> Some (Error e, (LazyList.empty, [ ]))
 
   let mappedList = LazyList.unfold unfolder (list, [ Root ])
 
