@@ -2,7 +2,6 @@ module JsonStream.TokenStream
 
 open FSharpx.Collections
 open JsonStream.StateOps
-open System.Runtime.InteropServices.ComTypes
 
 type JsonToken = Result<JsonVal<Token>, ParseError>
 type JsonList = LazyList<JsonToken>
