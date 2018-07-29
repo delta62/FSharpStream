@@ -1,11 +1,13 @@
-﻿open Argu
+﻿module ClassGenerator.Program
+
+open Argu
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open System.Reflection
-open Microsoft.CodeAnalysis.CSharp.Syntax
 open JsonDeserializer.Deserializer
 open JsonStream.StateOps
 open ClassGenerator.JsonParser
+open ClassGenerator.CodeGen
 open System.Text.RegularExpressions
 
 type Arguments =
@@ -29,21 +31,6 @@ let logCompilation (r: Emit.EmitResult) =
   printfn "Compilation success: %b" r.Success
   for d in r.Diagnostics do
     printfn "%A [%s]: %s" d.Severity d.Id (d.GetMessage())
-
-let genType =
-  SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword))
-
-let genId n =
-  SyntaxFactory.Identifier(n)
-
-let genInterface (n: string) ps =
-  let folder (decl: InterfaceDeclarationSyntax) k v =
-    let t = genType
-    let id = genId k
-    let mem = SyntaxFactory.PropertyDeclaration(t, id)
-    decl.AddMembers(mem)
-  let iface = (SyntaxFactory.InterfaceDeclaration(n)).WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-  Map.fold folder iface ps
 
 let readInterface n i =
   match i with
