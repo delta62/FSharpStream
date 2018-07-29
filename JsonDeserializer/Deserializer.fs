@@ -21,7 +21,7 @@ let rec value l =
   | False          -> Ok (Boolean false), t
   | Token.String s -> Ok (String s), t
   | Token.Number n -> Ok (Number n), t
-  | _              -> Error "unexpected input", t
+  | _              -> Error { Line = 0u; Column = 0u; Message = "unexpected input"} , t
 
 and obj l m =
   let h, t = LazyList.uncons l
@@ -36,7 +36,7 @@ and obj l m =
     match v with
     | Ok v -> obj t (Map.add k v m)
     | Error e -> Error e, t
-  | _ -> Error "unexpected input", t
+  | _ -> Error { Line = 0u; Column = 0u; Message = "unexpected input" }, t
 
 and arr l a =
   let h, t = LazyList.uncons l
@@ -60,4 +60,4 @@ let deserialize l =
 
   match t with
   | LazyList.Nil -> v
-  | LazyList.Cons _ -> Error "unexpected data after input"
+  | LazyList.Cons _ -> Error { Line = 0u; Column = 0u; Message = "unexpected data after input"; }
