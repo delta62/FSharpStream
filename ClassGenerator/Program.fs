@@ -75,5 +75,6 @@ let main argv =
     printfn "Done!"
     0
   | Error e ->
-    printfn "Error while compiling library."
+    printfn "%s:%d:%d - %s" schemaFile e.Line e.Column e.Message
+    printfn "Error while compiling library"
     1
