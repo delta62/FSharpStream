@@ -16,7 +16,7 @@ with
       match s with
       | Schema _ -> "Path to a JSON schema document"
 
-let mkAssembly n (tree: SyntaxNode) =
+let mkAssembly n tree =
   // let corlibloc = (typeof<Object>).Assembly.Location
   // let mscorlib = MetadataReference.CreateFromFile(corlibloc)
   let x = SyntaxFactory.CompilationUnit()
@@ -64,12 +64,16 @@ let main argv =
   let asmName = schemaFile |> asmFromFile
   printfn "Compiling %s..." asmName
 
-  fromFile schemaFile
-  |> Result.bind (readInterface asmName)
-  |> Result.map (mkAssembly asmName)
-  |> Result.map (fun _ -> printfn "Done!")
-  |> Result.mapError (fun e -> printfn "%A" e)
-  |> ignore
+  let res =
+    fromFile schemaFile
+    |> Result.bind (readInterface asmName)
+    |> Result.map (mkAssembly asmName)
 
   // Exit code
-  0
+  match res with
+  | Ok x ->
+    printfn "Done!"
+    0
+  | Error e ->
+    printfn "Error while compiling library."
+    1
