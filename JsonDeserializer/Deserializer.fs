@@ -13,19 +13,24 @@ type JsonNode =
 
 let rec value l =
   let h, t = LazyList.uncons l
-  match h with
-  | LeftBracket    -> obj t Map.empty
-  | LeftCurly      -> arr t List.empty
+  match h.Val with
+  | LeftBracket    -> arr t List.empty
+  | LeftCurly      -> obj t Map.empty
   | Token.Null     -> Ok Null, t
   | True           -> Ok (Boolean true), t
   | False          -> Ok (Boolean false), t
   | Token.String s -> Ok (String s), t
   | Token.Number n -> Ok (Number n), t
-  | _              -> Error { Line = 0u; Column = 0u; Message = "unexpected input"} , t
+  | _              ->
+    Error {
+      Line = h.Line;
+      Column = h.Column;
+      Message = sprintf "Unexpected input: %A" h.Val
+    } , t
 
 and obj l m =
   let h, t = LazyList.uncons l
-  match h with
+  match h.Val with
   | Comma ->
     obj t m
   | RightCurly ->
@@ -36,11 +41,16 @@ and obj l m =
     match v with
     | Ok v -> obj t (Map.add k v m)
     | Error e -> Error e, t
-  | _ -> Error { Line = 0u; Column = 0u; Message = "unexpected input" }, t
+  | _ ->
+    Error {
+      Line    = h.Line;
+      Column  = h.Column;
+      Message = sprintf "Unexpected input: %A" h.Val;
+    }, t
 
 and arr l a =
   let h, t = LazyList.uncons l
-  match h with
+  match h.Val with
   | Comma ->
     arr t a
   | RightBracket ->
@@ -51,13 +61,18 @@ and arr l a =
     | Ok v -> arr t (v :: a)
     | Error e -> Error e, t
 
-let deserialize l =
-  let nows = function
-  | { Val = Whitespace _ } -> false
-  | _ -> true
+let isWhitespace = function
+| { Val = Whitespace _ } -> true
+| _ -> false
 
-  let v, t = l |> LazyList.filter nows |> LazyList.map (fun x -> x.Val) |> value
+let deserialize l =
+  let v, t = l |> LazyList.filter (isWhitespace >> not) |> value
 
   match t with
   | LazyList.Nil -> v
-  | LazyList.Cons _ -> Error { Line = 0u; Column = 0u; Message = "unexpected data after input"; }
+  | LazyList.Cons(h, _) ->
+    Error {
+      Line    = h.Line;
+      Column  = h.Column;
+      Message = sprintf "Unexpected data after input: %A" h.Val;
+    }

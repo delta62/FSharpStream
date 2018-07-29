@@ -17,14 +17,12 @@ with
       | Schema _ -> "Path to a JSON schema document"
 
 let mkAssembly n tree =
-  // let corlibloc = (typeof<Object>).Assembly.Location
-  // let mscorlib = MetadataReference.CreateFromFile(corlibloc)
-  let x = SyntaxFactory.CompilationUnit()
+  let x = SyntaxFactory.CompilationUnit().WithMembers(SyntaxFactory.SingletonList(tree))
   let y = CSharpSyntaxTree.Create(x)
   let syntaxTrees = [ y; ]
   let refs = [  ]
   let opts = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-  let compilation = CSharpCompilation.Create(n, syntaxTrees, refs, opts)
+  let compilation = CSharpCompilation.Create(n, syntaxTrees, refs, opts).AddReferences(MetadataReference.CreateFromFile(typeof<System.Object>.Assembly.Location))
   compilation.Emit(sprintf "%s.dll" n)
 
 let logCompilation (r: Emit.EmitResult) =
@@ -44,7 +42,7 @@ let genInterface (n: string) ps =
     let id = genId k
     let mem = SyntaxFactory.PropertyDeclaration(t, id)
     decl.AddMembers(mem)
-  let iface = SyntaxFactory.InterfaceDeclaration(n)
+  let iface = (SyntaxFactory.InterfaceDeclaration(n)).WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
   Map.fold folder iface ps
 
 let readInterface n i =
@@ -72,9 +70,10 @@ let main argv =
   // Exit code
   match res with
   | Ok x ->
+    logCompilation x
     printfn "Done!"
     0
   | Error e ->
-    printfn "%s:%d:%d - %s" schemaFile e.Line e.Column e.Message
+    printfn "%s(%d,%d): %s" schemaFile e.Line e.Column e.Message
     printfn "Error while compiling library"
     1

@@ -17,7 +17,7 @@ let foldResultFlat f xs =
   match e with
   | Error e -> Error e
   | _       ->
-    match f l with
+    match f (LazyList.rev l) with
     | Ok x -> Ok x
     | Error e -> Error e
 
