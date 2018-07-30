@@ -7,10 +7,10 @@ open System.Text
 
 let unicodeEsc =
   rstate {
-    let! a = expect hexChar
-    let! b = expect hexChar
-    let! c = expect hexChar
-    let! d = expect hexChar
+    let! a = expectWith hexChar
+    let! b = expectWith hexChar
+    let! c = expectWith hexChar
+    let! d = expectWith hexChar
     let num =
       (fromHex a.Val <<< 12) +
       (fromHex b.Val <<< 8)  +
@@ -23,7 +23,7 @@ let unicodeSequence =
   rstate {
     let! char1 = unicodeEsc
     if isSurrogateChar char1.Val then
-      do! expectChars [ '\\'; 'u'; ]
+      do! expectN [ '\\'; 'u'; ]
       let! char2 = unicodeEsc
       if isSurrogateChar char2.Val then
         return {
@@ -46,7 +46,7 @@ let esc =
       { Line = jc.Line; Column = jc.Column; Val = c; }
 
   rstate {
-    let! jv = nextChar
+    let! jv = next
     return!
       match jv.Val with
       | 'b' -> fromChar jv "\b" |> unit
@@ -63,7 +63,7 @@ let esc =
 
 let rec stringToken (builder: StringBuilder) =
   rstate {
-    let! nc = nextChar
+    let! nc = next
     match nc.Val with
     | '\\' ->
       let! s = esc

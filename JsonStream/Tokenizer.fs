@@ -24,19 +24,19 @@ let private tokenAtChar char scalar = {
 
 let private trueToken t =
   rstate {
-    do! expectChars [ 'r'; 'u'; 'e'; ]
+    do! expectN [ 'r'; 'u'; 'e'; ]
     return tokenAtChar t True
   }
 
 let private falseToken f =
   rstate {
-    do! expectChars [ 'a'; 'l'; 's'; 'e'; ]
+    do! expectN [ 'a'; 'l'; 's'; 'e'; ]
     return tokenAtChar f False
   }
 
 let private nullToken n =
   rstate {
-    do! expectChars [ 'u'; 'l'; 'l'; ]
+    do! expectN [ 'u'; 'l'; 'l'; ]
     return tokenAtChar n Null
   }
 
@@ -53,35 +53,39 @@ let private whitespaceToken c =
 
 let private token =
   rstate {
-    let! jc = nextChar
-    let f = tokenAtChar jc
+    let! n = next
+    let f = tokenAtChar n
     return!
-      match jc.Val with
+      match n.Val with
       | '{' -> f LeftCurly    |> unit
       | '}' -> f RightCurly   |> unit
       | '[' -> f LeftBracket  |> unit
       | ']' -> f RightBracket |> unit
       | ':' -> f Colon        |> unit
       | ',' -> f Comma        |> unit
-      | 't' -> trueToken jc
-      | 'f' -> falseToken jc
-      | 'n' -> nullToken jc
+      | 't' -> trueToken n
+      | 'f' -> falseToken n
+      | 'n' -> nullToken n
       | '"' -> new StringBuilder() |> stringToken |> fmap f
       | c when numericLeader c ->
-        fmap f (numericToken jc)
+        fmap f (numericToken n)
       | c when isWhitespace c ->
-        whitespaceToken jc
-      | _   -> unexpectedInput jc |> fail
+        whitespaceToken n
+      | _   -> unexpectedInput n |> fail
   }
 
 let tokenize chars =
   let unfolder s =
-    match s with
+    match s.List with
     | LazyList.Nil -> None
     | _ ->
       let result = runStateR token s
       match result with
-      | Ok (content, tail) -> Some (Ok content, tail)
-      | Error e            -> Some (Error e, LazyList.empty)
+      | Ok (content, newState) ->
+        Some (Ok content, newState)
+      | Error e ->
+        Some (Error e, { s with List = LazyList.empty })
 
-  chars |> charsToJsonChars |> LazyList.unfold unfolder
+  let cs = chars |> charsToJsonChars
+  let s = { Line = 0u; Column = 0u; Val = '\u0000'; }
+  LazyList.unfold unfolder { LastVal = s; List = cs; }

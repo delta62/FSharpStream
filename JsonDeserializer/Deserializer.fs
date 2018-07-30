@@ -21,12 +21,7 @@ let rec value l =
   | False          -> Ok (Boolean false), t
   | Token.String s -> Ok (String s), t
   | Token.Number n -> Ok (Number n), t
-  | _              ->
-    Error {
-      Line = h.Line;
-      Column = h.Column;
-      Message = sprintf "Unexpected input: %A" h.Val
-    } , t
+  | _              -> Error (unexpectedInput h), t
 
 and obj l m =
   let h, t = LazyList.uncons l
@@ -41,12 +36,7 @@ and obj l m =
     match v with
     | Ok v -> obj t (Map.add k v m)
     | Error e -> Error e, t
-  | _ ->
-    Error {
-      Line    = h.Line;
-      Column  = h.Column;
-      Message = sprintf "Unexpected input: %A" h.Val;
-    }, t
+  | _ -> Error (unexpectedInput h), t
 
 and arr l a =
   let h, t = LazyList.uncons l

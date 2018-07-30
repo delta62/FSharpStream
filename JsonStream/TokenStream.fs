@@ -3,9 +3,6 @@ module JsonStream.TokenStream
 open FSharpx.Collections
 open JsonStream.StateOps
 
-type JsonToken = Result<JsonVal<Token>, ParseError>
-type JsonList = LazyList<JsonToken>
-
 type JsonContext =
   | Root
   | Object
@@ -14,20 +11,6 @@ type JsonContext =
   | ObjectValue
   | Array
   | ArrayValue
-
-let unexpectedEof =
-  Error {
-    Line    = 0u;
-    Column  = 0u;
-    Message = "Unexpected end of input";
-  }
-
-let unexpectedInput input =
- Error {
-    Line    = input.Line;
-    Column  = input.Column;
-    Message = sprintf "Unexpected input: %A" input.Val;
-  }
 
 let value token ctx =
   match token.Val with
@@ -38,19 +21,19 @@ let value token ctx =
   | Null        -> Ok (token, ctx)
   | LeftCurly   -> Ok (token, Object :: ctx)
   | LeftBracket -> Ok (token, Array :: ctx)
-  | _           -> unexpectedInput token
+  | _           -> Error (unexpectedInput token)
 
 let object token ctx =
   match token.Val with
   | String _   -> Ok (token, ObjectKey :: ctx)
   | RightCurly -> Ok (token, List.tail ctx)
-  | _          -> unexpectedInput token
+  | _          -> Error (unexpectedInput token)
 
 let objectVal token ctx =
   match token.Val with
   | RightCurly -> Ok (token, List.skip 2 ctx)
   | Comma      -> Ok (token, List.tail ctx)
-  | _          -> unexpectedInput token
+  | _          -> Error (unexpectedInput token)
 
 let array token ctx =
   match token.Val with
@@ -62,7 +45,7 @@ let arrayVal token ctx =
   match token.Val with
   | Comma        -> Ok (token, List.tail ctx)
   | RightBracket -> Ok (token, List.skip 2 ctx)
-  | _            -> unexpectedInput token
+  | _            -> Error (unexpectedInput token)
 
 let objectKey token ctx =
   match token.Val with
@@ -70,7 +53,7 @@ let objectKey token ctx =
     let newctx = ObjectColon :: (List.tail ctx)
     Ok (token, newctx)
   | _ ->
-    unexpectedInput token
+    Error (unexpectedInput token)
 
 let objectColon token ctx =
   value token ctx |> Result.map (fun (t, c) -> t, List.tail c)
@@ -121,6 +104,7 @@ let tokenStream list =
 
   // Empty JSON documents are invalid.
   if emptyStream mappedList then
+    printfn "emptyStream mappedList %A" mappedList
     LazyList.ofList [ unexpectedEof ]
   else
     mappedList

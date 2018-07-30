@@ -11,21 +11,32 @@ let rec digits acc =
     | None   -> return List.rev acc
   }
 
-let zeroOrDigits =
+let zeroOrDigits leader =
   rstate {
-    let! next = expect System.Char.IsDigit
-    match next.Val with
-    | c when c = '0' -> return [ c ]
-    | c -> return! digits [ c ]
+    let l =
+      match leader.Val with
+      | '-' -> [ leader.Val; ]
+      | _   -> [ ]
+    let! n =
+      match leader.Val with
+      | '-' -> expectWith System.Char.IsDigit
+      | _ -> unit leader
+
+    match n.Val with
+    | '0' ->
+      return List.concat [ l; [ n.Val ]; ]
+    | c   ->
+      let! digits = digits [ c; ]
+      return List.concat [ l; digits; ]
   }
 
 let frac =
   rstate {
-    let! point = maybeNextChar (fun c -> c.Val = '.')
+    let! point = maybeNextChar <| fun c -> c.Val = '.'
     match point with
     | Some _ ->
-      let! x = expect System.Char.IsDigit
-      let! xs = takeWhile (fun jc -> System.Char.IsDigit jc.Val)
+      let! x = expectWith System.Char.IsDigit
+      let! xs = takeWhile <| fun jc -> System.Char.IsDigit jc.Val
       return List.concat [ [ '.' ]; [ x.Val ]; List.map (fun x -> x.Val) xs ]
     | None -> return [ ]
   }
@@ -40,7 +51,7 @@ let exp =
         match signOpt with
         | Some jc -> [ jc.Val ]
         | None -> [ ]
-      let! x = expect System.Char.IsDigit
+      let! x = expectWith System.Char.IsDigit
       let! xs = takeWhile (fun jc -> System.Char.IsDigit jc.Val)
       return List.concat [ [ jc.Val ]; sign; [ x.Val ]; List.map (fun x -> x.Val) xs ]
     | None -> return [ ]
@@ -56,13 +67,11 @@ let sign =
 
 let numericToken leader =
   rstate {
-    do! putChar leader
-    let! sign = sign
-    let! digits = zeroOrDigits
+    let! digits = zeroOrDigits leader
     let! frac = frac
     let! exp = exp
 
-    return List.concat [ sign; digits; frac; exp; ]
+    return List.concat [ digits; frac; exp; ]
       |> Array.ofList
       |> System.String
       |> Number

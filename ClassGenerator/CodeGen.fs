@@ -1,4 +1,5 @@
 module ClassGenerator.CodeGen
+
 open JsonDeserializer.Deserializer
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
@@ -8,20 +9,15 @@ type SK = SyntaxKind
 
 let genArrayMember name node =
   let genericName = SF.Identifier("ImmutableArray") |> SF.GenericName
-  let var =
+  let id = SF.Identifier(name)
+  let typ =
     SK.IntKeyword // TODO
     |> SF.Token
     |> SF.PredefinedType
     |> SF.SingletonSeparatedList<TypeSyntax>
     |> SF.TypeArgumentList
     |> genericName.WithTypeArgumentList
-    |> SF.VariableDeclaration
-
-  name
-  |> SF.Identifier
-  |> SF.VariableDeclarator
-  |> SF.SingletonSeparatedList<VariableDeclaratorSyntax>
-  |> var.WithVariables
+  SF.PropertyDeclaration(typ, id)
 
 let genObjMember name node =
   // TODO
@@ -38,9 +34,9 @@ let genPreKeyword node =
   |> SF.PredefinedType
 
 let genPreMember name node =
-  let var = genPreKeyword node |> SF.VariableDeclaration
-  let vars = SF.SingletonSeparatedList<VariableDeclaratorSyntax>(SF.VariableDeclarator(SF.Identifier(name)))
-  var.WithVariables(vars)
+  let typ = genPreKeyword node
+  let nam = SF.Identifier name
+  SF.PropertyDeclaration(typ, nam)
 
 let genMember name node =
   match node with
@@ -55,11 +51,11 @@ let genMember name node =
     // genObjMember name node
     genPreMember name Null
 
-let genField x =
-  SF.FieldDeclaration(x).WithModifiers(SF.TokenList([
-    SF.Token(SyntaxKind.PublicKeyword);
-    SF.Token(SyntaxKind.ReadOnlyKeyword);
-  ]))
+let genField (x: PropertyDeclarationSyntax) =
+  let accs = SK.GetAccessorDeclaration |> SF.AccessorDeclaration
+  let accs = SK.SemicolonToken |> SF.Token |> accs.WithSemicolonToken
+  let accs = accs |> SF.SingletonList<AccessorDeclarationSyntax> |> SF.AccessorList
+  x.WithAccessorList(accs)
 
 let genInterface (n: string) ps =
   let folder (decl: InterfaceDeclarationSyntax) k v =

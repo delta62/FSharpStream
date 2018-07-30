@@ -8,11 +8,13 @@ open System.Text
 open FSharpx.Collections
 
 let foldResultFlat f xs =
+  let folder (list, e) x =
+    match x with
+    | Ok x    -> (LazyList.cons x list, e)
+    | Error e -> list, Error e
+
   let l, e =
-    LazyList.fold (fun (list, e) x ->
-      match x with
-      | Ok x    -> (LazyList.cons x list, e)
-      | Error e -> list, Error e) (LazyList.empty, Ok ()) xs
+    LazyList.fold folder (LazyList.empty, Ok ()) xs
 
   match e with
   | Error e -> Error e
