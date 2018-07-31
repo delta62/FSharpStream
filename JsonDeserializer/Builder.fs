@@ -11,22 +11,32 @@ type JsonNode =
   | Array   of JsonNode list
   | Object  of Map<string, JsonNode>
 
+type ArrayProduction =
+  | ValueArray of nodes: JsonNode list
+  | CommaArray of nodes: JsonNode list
+
+type ObjectProduction =
+  | KeyObject   of nodes: Map<string, JsonNode> * key: string
+  | ColonObject of nodes: Map<string, JsonNode> * key: string
+  | ValueObject of Map<string, JsonNode>
+  | CommaObject of Map<string, JsonNode>
+
 type JsonContext =
-  | ArrayBuilder  of items: JsonNode list         * sawComma: bool
-  | ObjectBuilder of items: Map<string, JsonNode> * key: string option
-  | RootBuilder   of item:  JsonNode option
+  | ArrayBuilder  of ArrayProduction
+  | ObjectBuilder of ObjectProduction
+  | RootBuilder   of JsonNode option
 
 let emptyArr =
-  ArrayBuilder (List.empty, false)
+  ArrayBuilder (ValueArray List.empty)
 
 let emptyObj =
-  ObjectBuilder (Map.empty, None)
+  ObjectBuilder (ValueObject (Map.empty))
 
 let add x c = function
-| ArrayBuilder (items, _) ->
-  ArrayBuilder (x :: items, false) |> Ok
-| ObjectBuilder (items, Some k) ->
-  ObjectBuilder (Map.add k x items, None) |> Ok
+| ArrayBuilder (CommaArray items) ->
+  ArrayBuilder (ValueArray (x :: items)) |> Ok
+| ObjectBuilder (ColonObject (items, k)) ->
+  ObjectBuilder (ValueObject (Map.add k x items)) |> Ok
 | RootBuilder None ->
   RootBuilder (Some x) |> Ok
 | _ -> unexpectedInput c |> Error
