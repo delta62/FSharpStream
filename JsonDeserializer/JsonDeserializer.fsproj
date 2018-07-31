@@ -6,6 +6,7 @@
     <ProjectReference Include="..\JsonStream\JsonStream.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Builder.fs" />
     <Compile Include="Deserializer.fs" />
   </ItemGroup>
   <ItemGroup>
