@@ -4,7 +4,7 @@ open FSharpx.Collections
 open JsonStream.StateOps
 open JsonDeserializer.Builder
 
-let scalar = function
+let convertScalar = function
 | Token.Null     -> JsonNode.Null
 | Token.True     -> JsonNode.Boolean true
 | Token.False    -> JsonNode.Boolean false
@@ -46,10 +46,10 @@ let leftCurly c = function
   [ emptyObj;  RootBuilder None; ] |> Ok
 | _ -> unexpectedInput c |> Error
 
-let scalar' c = function
+let scalar c = function
 | ArrayBuilder (ValueArray items) :: xs
 | ArrayBuilder (CommaArray items) :: xs ->
-  ArrayBuilder (ValueArray (scalar c.Val :: items)) :: xs |> Ok
+  ArrayBuilder (ValueArray (convertScalar c.Val :: items)) :: xs |> Ok
 | ObjectBuilder (ValueObject items) :: xs
 | ObjectBuilder (CommaObject items) :: xs ->
   match c.Val with
@@ -57,9 +57,9 @@ let scalar' c = function
       ObjectBuilder (KeyObject (items, s)) :: xs |> Ok
   | _ -> unexpectedInput c |> Error
 | ObjectBuilder (ColonObject _) as o :: xs ->
-  Result.map (fun x -> x :: xs) (add (scalar c.Val) c o)
+  Result.map (fun x -> x :: xs) (add (convertScalar c.Val) c o)
 | RootBuilder None :: xs ->
-  RootBuilder (Some (scalar c.Val)) :: xs |> Ok
+  RootBuilder (Some (convertScalar c.Val)) :: xs |> Ok
 | _ -> unexpectedInput c |> Error
 
 let rightBracket c = function
@@ -85,7 +85,7 @@ let addLiteral ctx token =
     | Token.Number _
     | True
     | False
-    | Token.Null   -> scalar' token ctx
+    | Token.Null   -> scalar token ctx
     | Comma        -> comma  token ctx
     | LeftBracket  -> leftBracket   token ctx
     | LeftCurly    -> leftCurly   token ctx
