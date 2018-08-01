@@ -75,7 +75,7 @@ let private token =
   }
 
 let tokenize chars =
-  let unfolder s =
+  let unfolder (s: TokenizerState<char>) =
     match s.List with
     | LazyList.Nil -> None
     | _ ->

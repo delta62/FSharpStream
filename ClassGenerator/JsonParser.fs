@@ -2,7 +2,6 @@ module ClassGenerator.JsonParser
 
 open JsonDeserializer.Deserializer
 open JsonStream.Tokenizer
-open JsonStream.TokenStream
 open System.IO
 open System.Text
 open FSharpx.Collections
@@ -34,5 +33,4 @@ let fromFile f =
 
   LazyList.unfold unfolder reader
   |> tokenize
-  |> tokenStream
   |> foldResultFlat deserialize

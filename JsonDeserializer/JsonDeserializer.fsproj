@@ -6,10 +6,13 @@
     <ProjectReference Include="..\JsonStream\JsonStream.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="JsonDeserializer.fs" />
     <Compile Include="Builder.fs" />
     <Compile Include="Deserializer.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharpx.Collections" Version="1.17.0" />
+    <PackageReference Include="FSharpx.Collections" Version="1.17.0">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
   </ItemGroup>
 </Project>

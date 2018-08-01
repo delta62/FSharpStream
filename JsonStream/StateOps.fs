@@ -3,37 +3,6 @@ module JsonStream.StateOps
 open FSharpx.Collections
 open RState
 
-type Token =
-  | LeftCurly
-  | RightCurly
-  | LeftBracket
-  | RightBracket
-  | Colon
-  | Comma
-  | True
-  | False
-  | Null
-  | String of string
-  | Number of string
-  | Whitespace of string
-
-type ParseError = {
-  Line    : uint32;
-  Column  : uint32;
-  Message : string;
-}
-
-type JsonVal<'a> = {
-  Line   : uint32;
-  Column : uint32;
-  Val    : 'a;
-}
-
-type TokenizerState<'a> = {
-  LastVal : JsonVal<'a>
-  List    : LazyList<JsonVal<'a>>;
-}
-
 let unexpectedInput v = {
   Line    = v.Line;
   Column  = v.Column;
@@ -92,7 +61,7 @@ let expectWith f =
       return! unexpectedInput next |> fail
   }
 
-let maybeNextChar f =
+let maybeNextChar f : RState<TokenizerState<'a>, JsonVal<'a> option, ParseError> =
   rstate {
     let! state = get
     if not (LazyList.isEmpty state.List) && f state.List.Head then
@@ -102,7 +71,7 @@ let maybeNextChar f =
       return None
   }
 
-let takeWhile f =
+let takeWhile f : RState<TokenizerState<'a>, JsonVal<'a> list, ParseError> =
   rstate {
     let! s = get
     let xs = LazyList.takeWhile f s.List

@@ -2,8 +2,8 @@ module JsonStream.Tests.StringTests
 
 open Expecto
 open FSharpx.Collections
+open JsonStream
 open JsonStream.Tokenizer
-open JsonStream.StateOps
 
 let stringToken x =
   let list = LazyList.ofSeq x |> tokenize

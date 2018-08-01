@@ -1,6 +1,7 @@
 module JsonDeserializer.Deserializer
 
 open FSharpx.Collections
+open JsonStream
 open JsonStream.StateOps
 open JsonDeserializer.Builder
 

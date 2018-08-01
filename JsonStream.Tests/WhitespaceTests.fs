@@ -2,8 +2,8 @@ module JsonStream.Tests.WhitespaceTests
 
 open Expecto
 open FSharpx.Collections
+open JsonStream
 open JsonStream.Tokenizer
-open JsonStream.StateOps
 
 let whitespaceToken x =
   let list = LazyList.ofSeq x |> tokenize

@@ -3,14 +3,6 @@ module JsonDeserializer.Builder
 open FSharpx.Collections
 open JsonStream.StateOps
 
-type JsonNode =
-  | Null
-  | Boolean of bool
-  | String  of string
-  | Number  of string
-  | Array   of JsonNode list
-  | Object  of Map<string, JsonNode>
-
 type ArrayProduction =
   | ValueArray of nodes: JsonNode list
   | CommaArray of nodes: JsonNode list
