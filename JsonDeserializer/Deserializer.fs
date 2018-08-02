@@ -3,7 +3,9 @@ module JsonDeserializer.Deserializer
 open FSharpx.Collections
 open JsonStream
 open JsonStream.StateOps
+open JsonStream.Types
 open JsonDeserializer.Builder
+open JsonDeserializer.Types
 
 let convertScalar = function
 | Token.Null     -> JsonNode.Null
@@ -13,69 +15,70 @@ let convertScalar = function
 | Token.Number n -> JsonNode.Number n
 | x              -> sprintf "Cannot convert non-scalar value %A" x |> failwith
 
+let flip f x y = f y x
+
 let comma c = function
-| ArrayBuilder (ValueArray items) :: xs when not (List.isEmpty items) ->
-  ArrayBuilder (CommaArray items) :: xs |> Ok
-| ObjectBuilder (ValueObject (items)) :: xs when not (Map.isEmpty items) ->
-  ObjectBuilder (CommaObject (items)) :: xs |> Ok
+| ValueArray items :: xs when not (List.isEmpty items) ->
+  CommaArray items :: xs |> Ok
+| ValueObject items :: xs when not (Map.isEmpty items) ->
+  CommaObject items :: xs |> Ok
 | _ -> unexpectedInput c |> Error
 
 let colon c = function
-| ObjectBuilder (KeyObject (items, k)) :: xs ->
-  ObjectBuilder (ColonObject (items, k)) :: xs |> Ok
+| KeyObject (items, k) :: xs ->
+  ColonObject (items, k) :: xs |> Ok
 | _ -> unexpectedInput c |> Error
 
 let leftBracket c = function
-| ArrayBuilder (ValueArray items) :: xs
-| ArrayBuilder (CommaArray items) :: xs ->
-  emptyArr :: ArrayBuilder (ValueArray items) :: xs |> Ok
-| ObjectBuilder (ValueObject items) :: xs
-| ObjectBuilder (CommaObject items) :: xs ->
-  emptyArr :: ObjectBuilder (ValueObject items) :: xs |> Ok
-| RootBuilder None :: _ ->
-  [ emptyArr; RootBuilder None; ] |> Ok
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  emptyArr :: ValueArray items :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
+  emptyArr :: ValueObject items :: xs |> Ok
+| Root None :: _ ->
+  [ emptyArr; Root None; ] |> Ok
 | _ -> unexpectedInput c |> Error
 
 let leftCurly c = function
-| ArrayBuilder (ValueArray items) :: xs
-| ArrayBuilder (CommaArray items) :: xs ->
-  emptyObj :: ArrayBuilder (ValueArray items) :: xs |> Ok
-| ObjectBuilder (ValueObject items) :: xs
-| ObjectBuilder (CommaObject items) :: xs ->
-  emptyObj :: ObjectBuilder (ValueObject items) :: xs |> Ok
-| RootBuilder None :: _ ->
-  [ emptyObj;  RootBuilder None; ] |> Ok
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  emptyObj :: ValueArray items :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
+  emptyObj :: ValueObject items :: xs |> Ok
+| Root None :: _ ->
+  [ emptyObj;  Root None; ] |> Ok
 | _ -> unexpectedInput c |> Error
 
 let scalar c = function
-| ArrayBuilder (ValueArray items) :: xs
-| ArrayBuilder (CommaArray items) :: xs ->
-  ArrayBuilder (ValueArray (convertScalar c.Val :: items)) :: xs |> Ok
-| ObjectBuilder (ValueObject items) :: xs
-| ObjectBuilder (CommaObject items) :: xs ->
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  ValueArray (convertScalar c.Val :: items) :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
   match c.Val with
-  | Token.String s ->
-      ObjectBuilder (KeyObject (items, s)) :: xs |> Ok
-  | _ -> unexpectedInput c |> Error
-| ObjectBuilder (ColonObject _) as o :: xs ->
-  Result.map (fun x -> x :: xs) (add (convertScalar c.Val) c o)
-| RootBuilder None :: xs ->
-  RootBuilder (Some (convertScalar c.Val)) :: xs |> Ok
+  | Token.String s -> KeyObject (items, s) :: xs |> Ok
+  | _              -> unexpectedInput c |> Error
+| ColonObject _ as o :: xs ->
+  Result.map (flip List.cons xs) (add (convertScalar c.Val) c o)
+| Root None :: xs ->
+  Root (Some (convertScalar c.Val)) :: xs |> Ok
 | _ -> unexpectedInput c |> Error
 
 let rightBracket c = function
-| ArrayBuilder (ValueArray items) :: p :: xs ->
+| ValueArray items :: p :: xs ->
   let node = List.rev items |> JsonNode.Array
-  Result.map (fun x -> x :: xs) (add node c p)
-| ArrayBuilder (ValueArray _) :: _ ->
+  Result.map (flip (List.cons) xs) (add node c p)
+| ValueArray _ :: _ ->
   failwith "Invalid state"
 | _ -> unexpectedInput c |> Error
 
 let rightCurly c = function
-| ObjectBuilder (ValueObject items) :: p :: xs ->
+| ValueObject items :: p :: xs ->
   let node = JsonNode.Object items
-  Result.map (fun x -> x :: xs) (add node c p)
-| ObjectBuilder (ValueObject _) :: _ ->
+  Result.map (flip List.cons xs) (add node c p)
+| ValueObject _ :: _ ->
   failwith "Invalid state"
 | _ -> unexpectedInput c |> Error
 
@@ -84,25 +87,25 @@ let addLiteral ctx token =
     match token.Val with
     | Token.String _
     | Token.Number _
-    | True
-    | False
-    | Token.Null   -> scalar token ctx
-    | Comma        -> comma  token ctx
-    | LeftBracket  -> leftBracket   token ctx
-    | LeftCurly    -> leftCurly   token ctx
-    | RightBracket -> rightBracket    token ctx
-    | RightCurly   -> rightCurly    token ctx
-    | Colon        -> colon  token ctx
-    | Whitespace _ -> Ok ctx) ctx
+    | Token.True
+    | Token.False
+    | Token.Null         -> scalar token ctx
+    | Token.Comma        -> comma token ctx
+    | Token.LeftBracket  -> leftBracket token ctx
+    | Token.LeftCurly    -> leftCurly token ctx
+    | Token.RightBracket -> rightBracket token ctx
+    | Token.RightCurly   -> rightCurly token ctx
+    | Token.Colon        -> colon token ctx
+    | Token.Whitespace _ -> Ok ctx) ctx
 
 let unwrapCtx = function
-| [ RootBuilder (Some n) ] -> Ok n
+| [ Root (Some n) ] -> Ok n
 | _ ->
   let lastTok = { Line = 1u; Column = 1u; Val = Token.Whitespace " " }
   let state = { LastVal = lastTok; List = LazyList.empty }
   unexpectedEof state |> Error
 
 let deserialize list =
-  let ctx = [ RootBuilder None; ]
+  let ctx = [ Root None; ]
   LazyList.fold addLiteral (Ok ctx) list
   |> Result.bind unwrapCtx

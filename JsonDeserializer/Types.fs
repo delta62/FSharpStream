@@ -1,6 +1,6 @@
-namespace JsonDeserializer
+module JsonDeserializer.Types
 
-type public JsonNode =
+type JsonNode =
   | Null
   | Boolean of bool
   | String  of string

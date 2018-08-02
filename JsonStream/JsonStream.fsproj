@@ -5,7 +5,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="JsonStream.fs" />
+    <Compile Include="Types.fs" />
     <Compile Include="LazyList.fs" />
     <Compile Include="Character.fs" />
     <Compile Include="RState.fs" />

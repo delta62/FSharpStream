@@ -1,7 +1,8 @@
 module JsonStream.Numbers
 
-open RState
-open StateOps
+open JsonStream.RState
+open JsonStream.StateOps
+open JsonStream.Types
 
 let rec digits acc =
   rstate {
@@ -74,7 +75,7 @@ let numericToken leader =
     return List.concat [ digits; frac; exp; ]
       |> Array.ofList
       |> System.String
-      |> Number
+      |> Token.Number
   }
 
 let numericLeader = function

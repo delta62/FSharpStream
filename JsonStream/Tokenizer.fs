@@ -1,11 +1,12 @@
 module JsonStream.Tokenizer
 
 open FSharpx.Collections
-open Character
-open RState
-open StateOps
-open Numbers
-open Strings
+open JsonStream.Character
+open JsonStream.RState
+open JsonStream.StateOps
+open JsonStream.Numbers
+open JsonStream.Strings
+open JsonStream.Types
 open System.Text
 
 let private charsToJsonChars chars =
@@ -25,19 +26,19 @@ let private tokenAtChar char scalar = {
 let private trueToken t =
   rstate {
     do! expectN [ 'r'; 'u'; 'e'; ]
-    return tokenAtChar t True
+    return tokenAtChar t Token.True
   }
 
 let private falseToken f =
   rstate {
     do! expectN [ 'a'; 'l'; 's'; 'e'; ]
-    return tokenAtChar f False
+    return tokenAtChar f Token.False
   }
 
 let private nullToken n =
   rstate {
     do! expectN [ 'u'; 'l'; 'l'; ]
-    return tokenAtChar n Null
+    return tokenAtChar n Token.Null
   }
 
 let private whitespaceToken c =
@@ -47,7 +48,7 @@ let private whitespaceToken c =
     |> List.map (fun jc -> jc.Val)
     |> List.toArray
     |> System.String
-    |> Whitespace
+    |> Token.Whitespace
     |> tokenAtChar c
   }
 
@@ -57,12 +58,12 @@ let private token =
     let f = tokenAtChar n
     return!
       match n.Val with
-      | '{' -> f LeftCurly    |> unit
-      | '}' -> f RightCurly   |> unit
-      | '[' -> f LeftBracket  |> unit
-      | ']' -> f RightBracket |> unit
-      | ':' -> f Colon        |> unit
-      | ',' -> f Comma        |> unit
+      | '{' -> f Token.LeftCurly    |> unit
+      | '}' -> f Token.RightCurly   |> unit
+      | '[' -> f Token.LeftBracket  |> unit
+      | ']' -> f Token.RightBracket |> unit
+      | ':' -> f Token.Colon        |> unit
+      | ',' -> f Token.Comma        |> unit
       | 't' -> trueToken n
       | 'f' -> falseToken n
       | 'n' -> nullToken n

@@ -2,8 +2,8 @@ module JsonStream.Tests.TokenizerTests
 
 open Expecto
 open FSharpx.Collections
-open JsonStream
 open JsonStream.Tokenizer
+open JsonStream.Types
 
 let singletonList f xs =
   match LazyList.length xs with
@@ -20,15 +20,15 @@ let makeTest (input, expected) =
     Expect.isTrue (singletonList isOk result) (sprintf "Failed to tokenize \"%s\"" input)
 
 let inputs = [
-  ("null", Null)
-  ("true", True)
-  ("false", False)
-  ("{", LeftCurly)
-  ("}", RightCurly)
-  ("[", LeftBracket)
-  ("]", RightBracket)
-  (":", Colon)
-  (",", Comma)
+  ("null", Token.Null)
+  ("true", Token.True)
+  ("false", Token.False)
+  ("{", Token.LeftCurly)
+  ("}", Token.RightCurly)
+  ("[", Token.LeftBracket)
+  ("]", Token.RightBracket)
+  (":", Token.Colon)
+  (",", Token.Comma)
 ]
 
 [<Tests>]

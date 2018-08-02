@@ -1,7 +1,8 @@
-namespace JsonStream
+module JsonStream.Types
 
 open FSharpx.Collections
 
+[<RequireQualifiedAccess>]
 type Token =
   | LeftCurly
   | RightCurly

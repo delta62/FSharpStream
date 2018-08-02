@@ -4,8 +4,8 @@ open Argu
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open System.Reflection
-open JsonStream
-open JsonDeserializer
+open JsonStream.Types
+open JsonDeserializer.Types
 open ClassGenerator.JsonParser
 open ClassGenerator.CodeGen
 open System.Text.RegularExpressions

@@ -1,8 +1,9 @@
 module JsonStream.Strings
 
-open RState
-open StateOps
-open Character
+open JsonStream.RState
+open JsonStream.StateOps
+open JsonStream.Character
+open JsonStream.Types
 open System.Text
 
 let unicodeEsc =
@@ -70,7 +71,7 @@ let rec stringToken (builder: StringBuilder) =
       builder.Append(s.Val) |> ignore
       return! stringToken builder
     | '"' ->
-      return String (builder.ToString())
+      return Token.String (builder.ToString())
     | c when unescaped c ->
       builder.Append(c) |> ignore
       return! stringToken builder

@@ -1,7 +1,8 @@
 module JsonStream.StateOps
 
 open FSharpx.Collections
-open RState
+open JsonStream.RState
+open JsonStream.Types
 
 let unexpectedInput v = {
   Line    = v.Line;

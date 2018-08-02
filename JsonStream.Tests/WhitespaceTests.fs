@@ -2,13 +2,13 @@ module JsonStream.Tests.WhitespaceTests
 
 open Expecto
 open FSharpx.Collections
-open JsonStream
 open JsonStream.Tokenizer
+open JsonStream.Types
 
 let whitespaceToken x =
   let list = LazyList.ofSeq x |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Val = Whitespace x})) -> Some x
+    | Some (Ok ({ Val = Token.Whitespace x})) -> Some x
     | _ -> None
 
 [<Tests>]

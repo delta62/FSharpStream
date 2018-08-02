@@ -1,6 +1,6 @@
 module ClassGenerator.CodeGen
 
-open JsonDeserializer
+open JsonDeserializer.Types
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 
