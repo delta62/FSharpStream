@@ -15,8 +15,6 @@ let convertScalar = function
 | Token.Number n -> JsonNode.Number n
 | x              -> sprintf "Cannot convert non-scalar value %A" x |> failwith
 
-let flip f x y = f y x
-
 let comma c = function
 | ValueArray items :: xs when not (List.isEmpty items) ->
   CommaArray items :: xs |> Ok
@@ -61,7 +59,7 @@ let scalar c = function
   | Token.String s -> KeyObject (items, s) :: xs |> Ok
   | _              -> unexpectedInput c |> Error
 | ColonObject _ as o :: xs ->
-  Result.map (flip List.cons xs) (add (convertScalar c.Val) c o)
+  Result.map (fun x -> x :: xs) (add (convertScalar c.Val) c o)
 | Root None :: xs ->
   Root (Some (convertScalar c.Val)) :: xs |> Ok
 | _ -> unexpectedInput c |> Error
@@ -69,7 +67,7 @@ let scalar c = function
 let rightBracket c = function
 | ValueArray items :: p :: xs ->
   let node = List.rev items |> JsonNode.Array
-  Result.map (flip (List.cons) xs) (add node c p)
+  Result.map (fun x -> x :: xs) (add node c p)
 | ValueArray _ :: _ ->
   failwith "Invalid state"
 | _ -> unexpectedInput c |> Error
@@ -77,7 +75,7 @@ let rightBracket c = function
 let rightCurly c = function
 | ValueObject items :: p :: xs ->
   let node = JsonNode.Object items
-  Result.map (flip List.cons xs) (add node c p)
+  Result.map (fun x -> x :: xs) (add node c p)
 | ValueObject _ :: _ ->
   failwith "Invalid state"
 | _ -> unexpectedInput c |> Error
