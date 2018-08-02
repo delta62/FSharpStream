@@ -3,12 +3,12 @@ module JsonStream.Tests.StringTests
 open Expecto
 open FSharpx.Collections
 open JsonStream.Tokenizer
-open JsonStream.StateOps
+open JsonStream.Types
 
 let stringToken x =
   let list = LazyList.ofSeq x |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Val = String x})) -> Some x
+    | Some (Ok ({ Val = Token.String x})) -> Some x
     | _ -> None
 
 let failString x =

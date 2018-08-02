@@ -5,16 +5,18 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Types.fs" />
     <Compile Include="LazyList.fs" />
     <Compile Include="Character.fs" />
     <Compile Include="RState.fs" />
     <Compile Include="StateOps.fs" />
     <Compile Include="Numbers.fs" />
     <Compile Include="Strings.fs" />
-    <Compile Include="TokenStream.fs" />
     <Compile Include="Tokenizer.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharpx.Collections" Version="1.17.0" />
+    <PackageReference Include="FSharpx.Collections" Version="1.17.0">
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
   </ItemGroup>
 </Project>

@@ -3,7 +3,7 @@ module JsonStream.Tests.NumberTests
 open Expecto
 open FSharpx.Collections
 open JsonStream.Tokenizer
-open JsonStream.StateOps
+open JsonStream.Types
 open FsCheck
 open ScienceGenerator
 
@@ -11,7 +11,7 @@ let singleNumber x =
   let str = x.ToString()
   let list = LazyList.ofSeq str |> tokenize
   match list.TryHead with
-    | Some (Ok ({ Val = Number x})) -> x = str
+    | Some (Ok ({ Val = Token.Number x})) -> x = str
     | _ -> false
 
 let cfg =

@@ -1,63 +1,109 @@
 module JsonDeserializer.Deserializer
 
 open FSharpx.Collections
+open JsonStream
 open JsonStream.StateOps
+open JsonStream.Types
+open JsonDeserializer.Builder
+open JsonDeserializer.Types
 
-type JsonNode =
-  | Null
-  | Boolean of bool
-  | String  of string
-  | Number  of string
-  | Array   of JsonNode list
-  | Object  of Map<string, JsonNode>
+let convertScalar = function
+| Token.Null     -> JsonNode.Null
+| Token.True     -> JsonNode.Boolean true
+| Token.False    -> JsonNode.Boolean false
+| Token.String s -> JsonNode.String s
+| Token.Number n -> JsonNode.Number n
+| x              -> sprintf "Cannot convert non-scalar value %A" x |> failwith
 
-let rec value l =
-  let h, t = LazyList.uncons l
-  match h with
-  | LeftBracket    -> obj t Map.empty
-  | LeftCurly      -> arr t List.empty
-  | Token.Null     -> Ok Null, t
-  | True           -> Ok (Boolean true), t
-  | False          -> Ok (Boolean false), t
-  | Token.String s -> Ok (String s), t
-  | Token.Number n -> Ok (Number n), t
-  | _              -> Error "unexpected input", t
+let comma c = function
+| ValueArray items :: xs when not (List.isEmpty items) ->
+  CommaArray items :: xs |> Ok
+| ValueObject items :: xs when not (Map.isEmpty items) ->
+  CommaObject items :: xs |> Ok
+| _ -> unexpectedInput c |> Error
 
-and obj l m =
-  let h, t = LazyList.uncons l
-  match h with
-  | Comma ->
-    obj t m
-  | RightCurly ->
-    Ok (Object m), t
-  | Token.String k ->
-    let _, t = LazyList.uncons t // ":"
-    let v, t = value t
-    match v with
-    | Ok v -> obj t (Map.add k v m)
-    | Error e -> Error e, t
-  | _ -> Error "unexpected input", t
+let colon c = function
+| KeyObject (items, k) :: xs ->
+  ColonObject (items, k) :: xs |> Ok
+| _ -> unexpectedInput c |> Error
 
-and arr l a =
-  let h, t = LazyList.uncons l
-  match h with
-  | Comma ->
-    arr t a
-  | RightBracket ->
-    Ok (Array a), t
-  | _ ->
-    let v, t = value t
-    match v with
-    | Ok v -> arr t (v :: a)
-    | Error e -> Error e, t
+let leftBracket c = function
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  emptyArr :: ValueArray items :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
+  emptyArr :: ValueObject items :: xs |> Ok
+| Root None :: _ ->
+  [ emptyArr; Root None; ] |> Ok
+| _ -> unexpectedInput c |> Error
 
-let deserialize l =
-  let nows = function
-  | { Val = Whitespace _ } -> false
-  | _ -> true
+let leftCurly c = function
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  emptyObj :: ValueArray items :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
+  emptyObj :: ValueObject items :: xs |> Ok
+| Root None :: _ ->
+  [ emptyObj;  Root None; ] |> Ok
+| _ -> unexpectedInput c |> Error
 
-  let v, t = l |> LazyList.filter nows |> LazyList.map (fun x -> x.Val) |> value
+let scalar c = function
+| ValueArray items :: xs
+| CommaArray items :: xs ->
+  ValueArray (convertScalar c.Val :: items) :: xs |> Ok
+| ValueObject items :: xs
+| CommaObject items :: xs ->
+  match c.Val with
+  | Token.String s -> KeyObject (items, s) :: xs |> Ok
+  | _              -> unexpectedInput c |> Error
+| ColonObject _ as o :: xs ->
+  Result.map (fun x -> x :: xs) (add (convertScalar c.Val) c o)
+| Root None :: xs ->
+  Root (Some (convertScalar c.Val)) :: xs |> Ok
+| _ -> unexpectedInput c |> Error
 
-  match t with
-  | LazyList.Nil -> v
-  | LazyList.Cons _ -> Error "unexpected data after input"
+let rightBracket c = function
+| ValueArray items :: p :: xs ->
+  let node = List.rev items |> JsonNode.Array
+  Result.map (fun x -> x :: xs) (add node c p)
+| ValueArray _ :: _ ->
+  failwith "Invalid state"
+| _ -> unexpectedInput c |> Error
+
+let rightCurly c = function
+| ValueObject items :: p :: xs ->
+  let node = JsonNode.Object items
+  Result.map (fun x -> x :: xs) (add node c p)
+| ValueObject _ :: _ ->
+  failwith "Invalid state"
+| _ -> unexpectedInput c |> Error
+
+let addLiteral ctx token =
+  Result.bind (fun ctx ->
+    match token.Val with
+    | Token.String _
+    | Token.Number _
+    | Token.True
+    | Token.False
+    | Token.Null         -> scalar token ctx
+    | Token.Comma        -> comma token ctx
+    | Token.LeftBracket  -> leftBracket token ctx
+    | Token.LeftCurly    -> leftCurly token ctx
+    | Token.RightBracket -> rightBracket token ctx
+    | Token.RightCurly   -> rightCurly token ctx
+    | Token.Colon        -> colon token ctx
+    | Token.Whitespace _ -> Ok ctx) ctx
+
+let unwrapCtx = function
+| [ Root (Some n) ] -> Ok n
+| _ ->
+  let lastTok = { Line = 1u; Column = 1u; Val = Token.Whitespace " " }
+  let state = { LastVal = lastTok; List = LazyList.empty }
+  unexpectedEof state |> Error
+
+let deserialize list =
+  let ctx = [ Root None; ]
+  LazyList.fold addLiteral (Ok ctx) list
+  |> Result.bind unwrapCtx

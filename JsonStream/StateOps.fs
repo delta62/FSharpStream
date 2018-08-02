@@ -1,98 +1,87 @@
 module JsonStream.StateOps
 
 open FSharpx.Collections
-open RState
+open JsonStream.RState
+open JsonStream.Types
 
-type Token =
-  | LeftCurly
-  | RightCurly
-  | LeftBracket
-  | RightBracket
-  | Colon
-  | Comma
-  | True
-  | False
-  | Null
-  | String of string
-  | Number of string
-  | Whitespace of string
-
-type ParseError = {
-  Line    : uint32;
-  Column  : uint32;
-  Message : string;
+let unexpectedInput v = {
+  Line    = v.Line;
+  Column  = v.Column;
+  Message = sprintf "Unexpected input: %A" v.Val;
 }
 
-type JsonVal<'a> = {
-  Line   : uint32;
-  Column : uint32;
-  Val    : 'a;
+let unexpectedEof state = {
+  Line    = state.LastVal.Line;
+  Column  = state.LastVal.Column + 1u;
+  Message = "Unexpected end of input";
 }
 
-let unexpectedInput char = {
-  Line    = char.Line;
-  Column  = char.Column;
-  Message = sprintf "Unexpected input: %c" char.Val;
-}
-
-let nextChar =
-  RState (function
-  | LazyList.Nil ->
-    Error {
-      Line    = 0u;
-      Column  = 0u;
-      Message = "Unexpected EOF";
-    }
-  | LazyList.Cons(h, t) -> Ok (h, t))
-
-let putChar c =
+let peek<'a> : RState<TokenizerState<'a>, JsonVal<'a> option, ParseError> =
   rstate {
-    let! list = get
-    do! LazyList.cons c list |> put
+    let! s = get
+    return LazyList.tryHead s.List
   }
 
-let expectChar expected =
+let next<'a> : RState<TokenizerState<'a>, JsonVal<'a>, ParseError> =
   rstate {
-    let! next = nextChar
-    return!
-      match next.Val with
-      | c when c = expected -> unit ()
-      | _ -> unexpectedInput next |> fail
+    let! s = get
+    match s.List with
+    | LazyList.Nil ->
+      return! unexpectedEof s |> fail
+    | LazyList.Cons(h, t) ->
+      do! put { LastVal = h; List = t; }
+      return h
   }
 
-let rec expectChars expected =
+let expect expected =
+  rstate {
+    let! next = next
+    match next.Val with
+    | c when c = expected ->
+      return ()
+    | _ ->
+      return! unexpectedInput next |> fail
+  }
+
+let rec expectN expected =
   rstate {
     match expected with
     | [ ] -> return ()
     | c :: tail ->
-      do! expectChar c
-      return! expectChars tail
+      do! expect c
+      return! expectN tail
   }
 
-let expect f =
+let expectWith f =
   rstate {
-    let! next = nextChar
-    return!
-      match next.Val with
-      | c when f c -> unit next
-      | _ -> unexpectedInput next |> fail
+    let! next = next
+    match next.Val with
+    | c when f c ->
+      return next
+    | _ ->
+      return! unexpectedInput next |> fail
   }
 
-let maybeNextChar f =
+let maybeNextChar f : RState<TokenizerState<'a>, JsonVal<'a> option, ParseError> =
   rstate {
-    let! list = get
-    if not (LazyList.isEmpty list) && f list.Head then
-      let! jc = nextChar
+    let! state = get
+    if not (LazyList.isEmpty state.List) && f state.List.Head then
+      let! jc = next
       return Some jc
     else
       return None
   }
 
-let takeWhile f =
+let takeWhile f : RState<TokenizerState<'a>, JsonVal<'a> list, ParseError> =
   rstate {
-    let! list = get
-    let xs = LazyList.takeWhile f list
-    let tail = LazyList.skip (List.length xs) list
-    do! put tail
-    return xs
+    let! s = get
+    let xs = LazyList.takeWhile f s.List
+    let tail = LazyList.skip (List.length xs) s.List
+
+    match xs with
+    | [ ] ->
+      return xs
+    | _ ->
+      do! put { LastVal = List.last xs; List = tail; }
+      return xs
   }
