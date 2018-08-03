@@ -31,9 +31,8 @@ let leftBracket c = function
 | ValueArray items :: xs
 | CommaArray items :: xs ->
   emptyArr :: ValueArray items :: xs |> Ok
-| ValueObject items :: xs
-| CommaObject items :: xs ->
-  emptyArr :: ValueObject items :: xs |> Ok
+| ColonObject _ as o :: xs ->
+  emptyArr :: o :: xs |> Ok
 | Root None :: _ ->
   [ emptyArr; Root None; ] |> Ok
 | _ -> unexpectedInput c |> Error
