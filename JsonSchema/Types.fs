@@ -9,12 +9,12 @@ open JsonDeserializer.Types
 type JsonSchema =
   | TrueSchema
   | FalseSchema
-  | MapSchema of Map<string, Constraint>
+  | ObjectSchema of Assertion list * Annotation list
 
 // Validation keywords for any instance type
 
 [<RequireQualifiedAccess>]
-type TypeConstraint =
+type ScalarTypeAssertion =
   | Null
   | Boolean
   | Object
@@ -23,90 +23,96 @@ type TypeConstraint =
   | String
   | Integer
 
-type EnumConstraint = EnumConstraint of JsonNode[]
+type TypeAssertion =
+  | ScalarType of ScalarTypeAssertion
+  | ListType of ScalarTypeAssertion list
 
-type ConstConstraint = ConstConstraint of JsonNode
+type Annotation = Annotation
+
+type EnumAssertion = EnumAssertion of JsonNode list
+
+type ConstAssertion = ConstAssertion of JsonNode
 
 // Validation keywords for numeric instances
 
-type MultipleOfConstraint = MultipleOf of double
+type MultipleOfAssertion = MultipleOf of double
 
-type MaximumConstraint = Maximum of double
+type MaximumAssertion = Maximum of double
 
-type ExclusiveMaximumConstraint = ExclusiveMaximum of double
+type ExclusiveMaximumAssertion = ExclusiveMaximum of double
 
-type MinimumConstraint = Minimum of double
+type MinimumAssertion = Minimum of double
 
-type ExclusiveMinimumConstraint = ExclusiveMinimum of double
+type ExclusiveMinimumAssertion = ExclusiveMinimum of double
 
 // Validation keywords for strings
 
-type MaxLengthConstraint = MaxLengthConstraint of uint64
+type MaxLengthAssertion = MaxLengthAssertion of uint64
 
-type MinLengthConstraint = MinLengthConstraint of uint64
+type MinLengthAssertion = MinLengthAssertion of uint64
 
-type PatternConstraint = PatternConstraint of string
+type PatternAssertion = PatternAssertion of string
 
 // Validation keywords for arrays
 
-type ItemsConstraint =
+type ItemsAssertion =
   | SingletonItemSchema of JsonSchema
   | MultiJsonSchema of JsonSchema[]
 
-type AdditionalItemsConstraint = AdditionalItemsConstraint of JsonSchema
+type AdditionalItemsAssertion = AdditionalItemsAssertion of JsonSchema
 
-type MaxItemsConstraint = MaxItemsConstraint of uint64
+type MaxItemsAssertion = MaxItemsAssertion of uint64
 
-type MinItemsConstraint = MinItemsConstraint of uint64
+type MinItemsAssertion = MinItemsAssertion of uint64
 
-type UniqueItemsConstraint = UniqueItemsConstraint of bool
+type UniqueItemsAssertion = UniqueItemsAssertion of bool
 
-type ContainsConstraint = ContainsConstraint of JsonSchema
+type ContainsAssertion = ContainsAssertion of JsonSchema
 
 // Validation keywords for objects
 
-type MaxPropertiesConstraint = MaxPropertiesConstraint of uint64
+type MaxPropertiesAssertion = MaxPropertiesAssertion of uint64
 
-type MinPropertiesConstraint = MinPropertiesConstraint of uint64
+type MinPropertiesAssertion = MinPropertiesAssertion of uint64
 
-type RequiredConstraint = RequiredConstraint of Set<string>
+type RequiredAssertion = RequiredAssertion of Set<string>
 
-type PropertiesConstraint = PropertiesConstraint of Map<string, JsonSchema>
+type PropertiesAssertion = PropertiesAssertion of Map<string, JsonSchema>
 
-type PatternPropertiesConstraint = PatternPropertiesConstraint of Map<string, JsonSchema>
+type PatternPropertiesAssertion = PatternPropertiesAssertion of Map<string, JsonSchema>
 
-type AdditionalPropertiesConstraint = AdditionalItemsConstraint of JsonSchema
+type AdditionalPropertiesAssertion = AdditionalItemsAssertion of JsonSchema
 
 type Dependency =
   | Schema of JsonSchema
   | Array of Set<string>
 
-type DependenciesConstraint = DependenciesConstraint of Map<string, Dependency>
+type DependenciesAssertion = DependenciesAssertion of Map<string, Dependency>
 
-type PropertyNamesConstraint = PropertyNamesConstraint of JsonSchema
+type PropertyNamesAssertion = PropertyNamesAssertion of JsonSchema
 
-type Constraint =
-  | EnumConstraint
-  | ConstConstraint
-  | MultipleOfConstraint
-  | MaximumConstraint
-  | ExclusiveMaximumConstraint
-  | MinimumConstraint
-  | ExclusiveMinimumConstraint
-  | MaxLengthConstraint
-  | MinLengthConstraint
-  | PatternConstraint
-  | ItemsConstraint
-  | AdditionalItemsConstraint
-  | MaxItemsConstraint
-  | MinItemsConstraint
-  | UniqueItemsConstraint
-  | ContainsConstraint
-  | MaxPropertiesConstraint
-  | MinPropertiesConstraint
-  | RequiredConstraint
-  | PropertiesConstraint
-  | PatternPropertiesConstraint
-  | AdditionalPropertiesConstraint
-  | DepenedenciesConstraint
-  | PropertyNamesConstraint
+type Assertion =
+  | EnumAssertion of EnumAssertion
+  | ConstAssertion
+  | MultipleOfAssertion
+  | MaximumAssertion
+  | ExclusiveMaximumAssertion
+  | MinimumAssertion
+  | ExclusiveMinimumAssertion
+  | MaxLengthAssertion
+  | MinLengthAssertion
+  | PatternAssertion
+  | ItemsAssertion
+  | AdditionalItemsAssertion
+  | MaxItemsAssertion
+  | MinItemsAssertion
+  | UniqueItemsAssertion
+  | ContainsAssertion
+  | MaxPropertiesAssertion
+  | MinPropertiesAssertion
+  | RequiredAssertion
+  | PropertiesAssertion
+  | PatternPropertiesAssertion
+  | AdditionalPropertiesAssertion
+  | DepenedenciesAssertion
+  | PropertyNamesAssertion
