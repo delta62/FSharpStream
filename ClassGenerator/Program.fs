@@ -7,6 +7,10 @@ open ClassGenerator.JsonParser
 open ClassGenerator.CodeGen
 open ClassGenerator.Names
 open ClassGenerator.Compiler
+open EnvLogger
+open System.IO
+
+let log = new Logger()
 
 type Arguments =
   | [<Mandatory>] Schema of path:string
@@ -27,8 +31,9 @@ let main argv =
   let args = parser.Parse argv
 
   let schemaFile = args.GetResult Schema
-  let asmName = schemaFile |> asmFromFile
-  printfn "Compiling %s..." asmName
+  let asmName = schemaFile |> Path.GetFileName |> asmFromFile
+
+  sprintf "Generating assembly \"%s\"..." asmName |> log.Info
 
   let res =
     fromFile schemaFile
@@ -40,9 +45,9 @@ let main argv =
   match res with
   | Ok x ->
     logCompilation x
-    printfn "Done!"
+    log.Info "Done!"
     0
   | Error e ->
-    printfn "%s(%d,%d): %s" schemaFile e.Line e.Column e.Message
-    printfn "Error while compiling library"
+    sprintf "%s(%d,%d): %s" schemaFile e.Line e.Column e.Message |> log.Error
+    log.Error "Error while compiling library"
     1

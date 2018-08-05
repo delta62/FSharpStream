@@ -4,10 +4,12 @@ open JsonDeserializer.Types
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open ClassGenerator.Names
-open Microsoft.CodeAnalysis.CSharp.Syntax
+open EnvLogger
 
 type SF = SyntaxFactory
 type SK = SyntaxKind
+
+let log = new Logger()
 
 let genArrayMember name node =
   let genericName = SF.Identifier("IReadOnlyList") |> SF.GenericName
@@ -60,6 +62,7 @@ let genField (x: PropertyDeclarationSyntax) =
   x.WithAccessorList(accs)
 
 let genInterface (n: string) ps =
+  sprintf "Generating interface for %s" n |> log.Info
   let folder (decl: InterfaceDeclarationSyntax) k v =
     let fieldDecl = genMember k v |> genField
     decl.AddMembers(fieldDecl)
