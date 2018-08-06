@@ -6,13 +6,13 @@ open JsonSchema.Types
 let (<!>) = Result.map
 
 let scalarTypeConstraint = function
-| JsonNode.String "null"    -> Ok ScalarTypeAssertion.Null
-| JsonNode.String "boolean" -> Ok ScalarTypeAssertion.Boolean
-| JsonNode.String "object"  -> Ok ScalarTypeAssertion.Object
-| JsonNode.String "array"   -> Ok ScalarTypeAssertion.Array
-| JsonNode.String "number"  -> Ok ScalarTypeAssertion.Number
-| JsonNode.String "string"  -> Ok ScalarTypeAssertion.String
-| JsonNode.String "integer" -> Ok ScalarTypeAssertion.Integer
+| JsonNode.String "null"    -> ScalarType.Null    |> Ok
+| JsonNode.String "boolean" -> ScalarType.Boolean |> Ok
+| JsonNode.String "object"  -> ScalarType.Object  |> Ok
+| JsonNode.String "array"   -> ScalarType.Array   |> Ok
+| JsonNode.String "number"  -> ScalarType.Number  |> Ok
+| JsonNode.String "string"  -> ScalarType.String  |> Ok
+| JsonNode.String "integer" -> ScalarType.Integer |> Ok
 | _                         -> Error "Invalid type constraint"
 
 let rec foldResults list acc =
@@ -25,26 +25,41 @@ let rec foldResults list acc =
 let rec makeTypeConstraint node =
   match node with
   | JsonNode.Array xs ->
-    ListType <!> foldResults (List.map scalarTypeConstraint xs) (Ok List.empty)
-  | JsonNode.String _ -> ScalarType <!> scalarTypeConstraint node
+    foldResults (List.map scalarTypeConstraint xs) (Ok List.empty)
+    |> Result.map (ListType >> Assertion.Type)
+  | JsonNode.String _ ->
+    Result.map ScalarType (scalarTypeConstraint node)
+    |> Result.map Assertion.Type
   | _ -> Error "Invalid type constraint"
 
 let makeEnumConstraint node =
   match node with
   | JsonNode.Array xs ->
-    xs |> EnumAssertion |> Ok
+    xs |> Assertion.Enum |> Ok
   | _ -> Error "Invalid enum constraint"
+
+let makeConstConstraint node =
+  Assertion.Const node |> Ok
 
 let makeConstraint name node =
   match name with
-  | "type" -> makeTypeConstraint node |> Some
-  | "enum" -> makeEnumConstraint node |> Some
-  | _      -> None
+  | "type"  -> makeTypeConstraint  node |> Some
+  | "enum"  -> makeEnumConstraint  node |> Some
+  | "const" -> makeConstConstraint node |> Some
+  | _       -> None
 
 let obj (m: Map<string, JsonNode>): Result<JsonSchema, string> =
-  let constraints = Map.fold (fun s k v -> s) List.empty m
-  // map<string, JsonNode> -> Constraint list
-  Error "not implemented"
+  let init = (List.empty, List.empty) |> ObjectSchema |> Ok
+  Map.fold (fun s k v ->
+    let res = makeConstraint k v
+    match res, s with
+    | _, Error e        -> Error e
+    | None, s           -> s
+    | Some (Error e), _ -> Error e
+    | Some (Ok x), Ok (ObjectSchema (xs, ys)) -> Ok (ObjectSchema (x :: xs, ys))
+    // Should never be calling this with TrueSchema / FalseSchema
+    | _                 -> Error "invalid state"
+  ) init m
 
 let parse = function
 | JsonNode.Object m      -> obj m
