@@ -41,12 +41,72 @@ let makeEnumConstraint node =
 let makeConstConstraint node =
   Assertion.Const node |> Ok
 
+let strToInt x =
+  let couldParse, parsed = System.Int64.TryParse x
+  match couldParse with
+  | true  -> SchemaNumber.Integer parsed |> Ok
+  | false -> sprintf "Unable to parse integer from %s" x |> Error
+
+let strToUint x =
+  let couldParse, parsed = System.UInt64.TryParse x
+  match couldParse with
+  | true  -> Ok parsed
+  | false -> sprintf "Unable to parse unsigned integer from %s" x |> Error
+
+let strToFloat x =
+  let couldParse, parsed = System.Double.TryParse x
+  match couldParse with
+  | true -> SchemaNumber.Double parsed |> Ok
+  | false -> sprintf "Unable to parse number from %s" x |> Error
+
+let strToNum (x: string) =
+  if x.Contains "." then
+    strToFloat x
+  else
+    strToInt x
+
+let makeMultipleOfConstraint = function
+| JsonNode.Number n -> strToNum n |> Result.map Assertion.MultipleOf
+| _ -> Error "Invalid multipleOf constraint"
+
+let makeMaximumConstraint = function
+| JsonNode.Number n -> strToInt n |> Result.map Assertion.Maximum
+| _ -> Error "Invalid maximum constraint"
+
+let makeMinimumConstraint = function
+| JsonNode.Number n -> strToInt n |> Result.map Assertion.Minimum
+| _ -> Error "Invalid minimum constraint"
+
+let makeExclusiveMaximumConstraint = function
+| JsonNode.Number n -> strToInt n |> Result.map Assertion.ExclusiveMaximum
+| _ -> Error "Invalid exclusiveMaximumConstraint"
+
+let makeExclusiveMinimumConstraint = function
+| JsonNode.Number n -> strToInt n |> Result.map Assertion.ExclusiveMinimum
+| _ -> Error "Invalid exclusiveMinimumConstraint"
+
+let makeMaxLengthConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MaxLength
+| _ -> Error "Invalid maxLength"
+
+let makeMinLengthConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MinLength
+| _ -> Error "Invalid minLength"
+
 let makeConstraint name node =
   match name with
-  | "type"  -> makeTypeConstraint  node |> Some
-  | "enum"  -> makeEnumConstraint  node |> Some
-  | "const" -> makeConstConstraint node |> Some
-  | _       -> None
+  | "type"             -> makeTypeConstraint node             |> Some
+  | "enum"             -> makeEnumConstraint node             |> Some
+  | "const"            -> makeConstConstraint node            |> Some
+  | "multipleOf"       -> makeMultipleOfConstraint node       |> Some
+  | "maximum"          -> makeMaximumConstraint node          |> Some
+  | "minimum"          -> makeMinimumConstraint node          |> Some
+  | "exclusiveMaximum" -> makeExclusiveMaximumConstraint node |> Some
+  | "exclusiveMinimum" -> makeExclusiveMinimumConstraint node |> Some
+  | "maxLength"        -> makeMaxLengthConstraint node        |> Some
+  | "minLength"        -> makeMinLengthConstraint node        |> Some
+  // TODO pattern
+  | _                  -> None
 
 let obj (m: Map<string, JsonNode>): Result<JsonSchema, string> =
   let init = (List.empty, List.empty) |> ObjectSchema |> Ok

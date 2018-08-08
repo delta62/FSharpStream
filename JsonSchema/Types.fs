@@ -27,6 +27,11 @@ type TypeAssertion =
 
 type Annotation = Annotation
 
+[<RequireQualifiedAccess>]
+type SchemaNumber =
+  | Integer of int64
+  | Double of double
+
 type ItemsAssertion =
   | SingletonItemSchema of JsonSchema
   | MultiJsonSchema of JsonSchema[]
@@ -42,11 +47,11 @@ type Assertion =
   | Enum                 of JsonNode list
   | Const                of JsonNode
   // Validation keywords for numeric instances
-  | MultipleOf           of double
-  | Maximum              of double
-  | ExclusiveMaximum     of double
-  | Minimum              of double
-  | ExclusiveMinimum     of double
+  | MultipleOf           of SchemaNumber
+  | Maximum              of SchemaNumber
+  | ExclusiveMaximum     of SchemaNumber
+  | Minimum              of SchemaNumber
+  | ExclusiveMinimum     of SchemaNumber
   // Validation keywords for strings
   | MaxLength            of uint64
   | MinLength            of uint64
