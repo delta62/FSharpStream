@@ -19,12 +19,11 @@
       <NoWarn>NU1701</NoWarn>
     </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="2.8.2" />
-    <!-- <PackageReference Include="OkiDoki.EnvLogger" Version="0.2.0" /> -->
+    <PackageReference Include="OkiDoki.EnvLogger" Version="0.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\JsonDeserializer\JsonDeserializer.fsproj" />
-    <ProjectReference Include="..\..\EnvLogger\EnvLogger\EnvLogger.csproj" />
   </ItemGroup>
 
 </Project>
