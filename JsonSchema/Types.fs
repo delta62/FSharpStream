@@ -27,8 +27,6 @@ type TypeAssertion =
   | ScalarType of ScalarType
   | ListType of ScalarType list
 
-type Annotation = Annotation
-
 [<RequireQualifiedAccess>]
 type SchemaNumber =
   | Integer of int64
@@ -74,3 +72,12 @@ type Assertion =
   | AdditionalProperties of JsonSchema
   | Depenedenciesof      of Map<string, Dependency>
   | PropertyNames        of JsonSchema
+
+[<RequireQualifiedAccess>]
+type Annotation =
+  | Title       of string
+  | Description of string
+  | Default     of JsonNode
+  | ReadOnly    of bool
+  | WriteOnly   of bool
+  | Examples    of JsonNode list

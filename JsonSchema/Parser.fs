@@ -214,6 +214,39 @@ let makeConstraint name node =
   | "propertyNames"        -> makePropertyNamesConstraint node        |> Some
   | _                      -> None
 
+let makeTitleAnnotation = function
+| JsonNode.String s -> s |> Annotation.Title |> Ok
+| _ -> Error "Invalid title"
+
+let makeDescriptionAnnotation = function
+| JsonNode.String s -> s |> Annotation.Description |> Ok
+| _ -> Error "Invalid description"
+
+let makeDefaultAnnotation node =
+  node |> Annotation.Default |> Ok
+
+let makeReadOnlyAnnotation = function
+| JsonNode.Boolean b -> b |> Annotation.ReadOnly |> Ok
+| _ -> Error "Invalid readOnly"
+
+let makeWriteOnlyAnnotation = function
+| JsonNode.Boolean b -> b |> Annotation.WriteOnly |> Ok
+| _ -> Error "Invalid writeOnly"
+
+let makeExamplesAnnotation = function
+| JsonNode.Array xs -> xs |> Annotation.Examples |> Ok
+| _ -> Error "Invalid examples"
+
+let makeAnnotation name node =
+  match name with
+  | "title"       -> makeTitleAnnotation node       |> Some
+  | "description" -> makeDescriptionAnnotation node |> Some
+  | "default"     -> makeDefaultAnnotation node     |> Some
+  | "readOnly"    -> makeReadOnlyAnnotation node    |> Some
+  | "writeOnly"   -> makeWriteOnlyAnnotation node   |> Some
+  | "examples"    -> makeExamplesAnnotation node    |> Some
+  | _ -> None
+
 let obj m =
   let init = (List.empty, List.empty) |> ObjectSchema |> Ok
   Map.fold (fun s k v ->
