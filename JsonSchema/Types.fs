@@ -1,6 +1,8 @@
 module rec JsonSchema.Types
 
 open JsonDeserializer.Types
+open System.Text.RegularExpressions
+open System.Collections.Generic
 
 // TODO:
 // - ECMA262 regex validation
@@ -34,11 +36,11 @@ type SchemaNumber =
 
 type ItemsAssertion =
   | SingletonItemSchema of JsonSchema
-  | MultiJsonSchema of JsonSchema[]
+  | MultiJsonSchema of JsonSchema list
 
 type Dependency =
-  | Schema of JsonSchema
-  | Array of Set<string>
+  | SchemaDependency of JsonSchema
+  | ArrayDependency of string list
 
 [<RequireQualifiedAccess>]
 type Assertion =
@@ -55,7 +57,7 @@ type Assertion =
   // Validation keywords for strings
   | MaxLength            of uint64
   | MinLength            of uint64
-  | Pattern              of string
+  | Pattern              of Regex
   // Validation keywords for arrays
   | Items                of ItemsAssertion
   | AdditionalItems      of JsonSchema
@@ -66,9 +68,9 @@ type Assertion =
   // Validation keywords for objects
   | MaxProperties        of uint64
   | MinProperties        of uint64
-  | Required             of Set<string>
+  | Required             of string list
   | Properties           of Map<string, JsonSchema>
-  | PatternProperties    of Map<string, JsonSchema>
+  | PatternProperties    of Dictionary<Regex, JsonSchema>
   | AdditionalProperties of JsonSchema
   | Depenedenciesof      of Map<string, Dependency>
   | PropertyNames        of JsonSchema

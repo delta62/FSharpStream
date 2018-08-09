@@ -1,4 +1,4 @@
-module JsonSchema.Parser
+module rec JsonSchema.Parser
 
 open JsonDeserializer.Types
 open JsonSchema.Types
@@ -93,22 +93,128 @@ let makeMinLengthConstraint = function
 | JsonNode.Number n -> strToUint n |> Result.map Assertion.MinLength
 | _ -> Error "Invalid minLength"
 
+let makeAdditionalItemsConstraint node =
+  Result.map Assertion.AdditionalItems (parse node)
+
+let makeMaxItemsConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MaxItems
+| _ -> Error "Invalid maxItems"
+
+let makeMinItemsConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MinItems
+| _ -> Error "Invalid minItems"
+
+let makeUniqueItemsConstraint = function
+| JsonNode.Boolean b -> b |> Assertion.UniqueItems |> Ok
+| _ -> Error "Invalid uniqueItems"
+
+let makeContainsConstraint node =
+  Result.map Assertion.Contains (parse node)
+
+let makeMaxPropertiesConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MaxProperties
+| _ -> Error "Invalid maxProperties"
+
+let makeMinPropertiesConstraint = function
+| JsonNode.Number n -> strToUint n |> Result.map Assertion.MinProperties
+| _ -> Error "Invalid minProperties"
+
+let makeRequiredConstraint = function
+| JsonNode.Array xs ->
+  // TODO unique
+  List.fold (fun s x ->
+    match x, s with
+    | JsonNode.String s, Ok state -> Ok (s :: state)
+    | _ -> Error "Invalid required"
+  ) (Ok [ ]) xs |> Result.map Assertion.Required
+| _ -> Error "Invalid required"
+
+let makePropertiesConstraint = function
+| JsonNode.Object m ->
+  let folder s k v =
+    match parse v, s with
+    | Ok schema, Ok s -> Map.add k schema s |> Ok
+    | _, Error e -> Error e
+    | Error e, _ -> Error e
+  Map.fold folder (Ok Map.empty) m |> Result.map Assertion.Properties
+| _ -> Error "Invalid properties"
+
+let makeAdditionalPropertiesConstraint node =
+  Result.map Assertion.AdditionalProperties (parse node)
+
+let makePropertyNamesConstraint node =
+  Result.map Assertion.PropertyNames (parse node)
+
+let makeItemsConstraint = function
+| JsonNode.Array xs ->
+  let folder s x =
+    match s with
+    | Error e -> Error e
+    | Ok xs ->
+      let schema = parse x
+      Result.map (fun x -> x :: xs) schema
+  let res = List.fold folder (Ok List.empty) xs
+  Result.map (MultiJsonSchema >> Assertion.Items) res
+| x ->
+  let schema = parse x
+  Result.map (SingletonItemSchema >> Assertion.Items) schema
+
+let makeDependencyArray = function
+| JsonNode.Array xs ->
+  let folder state x =
+    match x, state with
+    | JsonNode.String s, Ok xs -> (Ok (s :: xs))
+    | _ -> Error "Invalid dependency array item"
+  let deps = List.fold folder (Ok List.empty) xs
+  Result.map ArrayDependency deps
+| _ -> Error "Invalid dependency array"
+
+let makeSingletonDependency node =
+  Result.map SchemaDependency (parse node)
+
+let makeDependenciesConstraint = function
+| JsonNode.Object m ->
+  let folder s k v =
+    match v, s with
+    | JsonNode.Array _, Ok acc ->
+      Result.map (fun x -> Map.add k x acc) (makeDependencyArray v)
+    | x, Ok acc ->
+      Result.map (fun x -> Map.add k x acc) (makeSingletonDependency x)
+    | _ -> Error "Invalid dependency"
+  let foo = Map.fold folder (Ok Map.empty) m
+  Result.map Assertion.Depenedenciesof foo
+| _ -> Error "Invalid dependencies"
+
 let makeConstraint name node =
   match name with
-  | "type"             -> makeTypeConstraint node             |> Some
-  | "enum"             -> makeEnumConstraint node             |> Some
-  | "const"            -> makeConstConstraint node            |> Some
-  | "multipleOf"       -> makeMultipleOfConstraint node       |> Some
-  | "maximum"          -> makeMaximumConstraint node          |> Some
-  | "minimum"          -> makeMinimumConstraint node          |> Some
-  | "exclusiveMaximum" -> makeExclusiveMaximumConstraint node |> Some
-  | "exclusiveMinimum" -> makeExclusiveMinimumConstraint node |> Some
-  | "maxLength"        -> makeMaxLengthConstraint node        |> Some
-  | "minLength"        -> makeMinLengthConstraint node        |> Some
+  | "type"                 -> makeTypeConstraint node                 |> Some
+  | "enum"                 -> makeEnumConstraint node                 |> Some
+  | "const"                -> makeConstConstraint node                |> Some
+  | "multipleOf"           -> makeMultipleOfConstraint node           |> Some
+  | "maximum"              -> makeMaximumConstraint node              |> Some
+  | "minimum"              -> makeMinimumConstraint node              |> Some
+  | "exclusiveMaximum"     -> makeExclusiveMaximumConstraint node     |> Some
+  | "exclusiveMinimum"     -> makeExclusiveMinimumConstraint node     |> Some
+  | "maxLength"            -> makeMaxLengthConstraint node            |> Some
+  | "minLength"            -> makeMinLengthConstraint node            |> Some
   // TODO pattern
-  | _                  -> None
+  | "items"                -> makeItemsConstraint node                |> Some
+  | "additionalItems"      -> makeAdditionalItemsConstraint node      |> Some
+  | "maxItems"             -> makeMaxItemsConstraint node             |> Some
+  | "minItems"             -> makeMinItemsConstraint node             |> Some
+  | "uniqueItems"          -> makeUniqueItemsConstraint node          |> Some
+  | "contains"             -> makeContainsConstraint node             |> Some
+  | "maxProperties"        -> makeMaxPropertiesConstraint node        |> Some
+  | "minProperties"        -> makeMinPropertiesConstraint node        |> Some
+  | "required"             -> makeRequiredConstraint node             |> Some
+  | "properties"           -> makePropertiesConstraint node           |> Some
+  // TODO patternProperties
+  | "additionalProperties" -> makeAdditionalPropertiesConstraint node |> Some
+  | "dependencies"         -> makeDependenciesConstraint node         |> Some
+  | "propertyNames"        -> makePropertyNamesConstraint node        |> Some
+  | _                      -> None
 
-let obj (m: Map<string, JsonNode>): Result<JsonSchema, string> =
+let obj m =
   let init = (List.empty, List.empty) |> ObjectSchema |> Ok
   Map.fold (fun s k v ->
     let res = makeConstraint k v
