@@ -1,5 +1,6 @@
 module JsonDeserializer.Types
 
+[<RequireQualifiedAccess>]
 type JsonNode =
   | Null
   | Boolean of bool

@@ -4,8 +4,8 @@ open FSharpx.Collections
 open JsonStream
 open JsonStream.StateOps
 open JsonStream.Types
-open JsonDeserializer.Builder
-open JsonDeserializer.Types
+open Builder
+open Types
 
 let convertScalar = function
 | Token.Null     -> JsonNode.Null

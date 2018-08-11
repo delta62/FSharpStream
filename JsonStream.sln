@@ -11,6 +11,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JsonDeserializer", "JsonDes
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ClassGenerator", "ClassGenerator\ClassGenerator.fsproj", "{48A854EB-C17E-4BEB-8E2C-4C3C8B93D6C6}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JsonSchema", "JsonSchema\JsonSchema.fsproj", "{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -72,5 +74,17 @@ Global
 		{48A854EB-C17E-4BEB-8E2C-4C3C8B93D6C6}.Release|x64.Build.0 = Release|Any CPU
 		{48A854EB-C17E-4BEB-8E2C-4C3C8B93D6C6}.Release|x86.ActiveCfg = Release|Any CPU
 		{48A854EB-C17E-4BEB-8E2C-4C3C8B93D6C6}.Release|x86.Build.0 = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|x64.Build.0 = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Debug|x86.Build.0 = Debug|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|x64.ActiveCfg = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|x64.Build.0 = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|x86.ActiveCfg = Release|Any CPU
+		{DBDF275E-B4D8-4D45-BA99-B4FC539E1056}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

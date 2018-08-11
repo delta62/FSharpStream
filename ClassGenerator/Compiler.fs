@@ -3,6 +3,9 @@ module ClassGenerator.Compiler
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis
 open ClassGenerator.Names
+open EnvLogger
+
+let log = new Logger()
 
 let mkAssembly n cu =
   let y = CSharpSyntaxTree.Create cu
@@ -13,6 +16,18 @@ let mkAssembly n cu =
   dllFromAsm n |> compilation.Emit
 
 let logCompilation (r: Emit.EmitResult) =
-  printfn "Compilation success: %b" r.Success
+  if r.Success then
+    sprintf "Compilation successful." |> log.Info
+  else
+    sprintf "Compilation failed." |> log.Error
   for d in r.Diagnostics do
-    printfn "%A [%s]: %s" d.Severity d.Id (d.GetMessage())
+    match d.Severity with
+    | DiagnosticSeverity.Error ->
+      sprintf "[%s]: %s" d.Id (d.GetMessage()) |> log.Error
+    | DiagnosticSeverity.Warning ->
+      sprintf "[%s]: %s" d.Id (d.GetMessage()) |> log.Warn
+    | DiagnosticSeverity.Info ->
+      sprintf "[%s]: %s" d.Id (d.GetMessage()) |> log.Info
+    | DiagnosticSeverity.Hidden ->
+      sprintf "[%s]: %s" d.Id (d.GetMessage()) |> log.Trace
+    | _ -> ()
