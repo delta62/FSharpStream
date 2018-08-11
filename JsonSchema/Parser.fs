@@ -2,6 +2,8 @@ module rec JsonSchema.Parser
 
 open JsonDeserializer.Types
 open JsonSchema.Types
+open System.Text.RegularExpressions
+open System.Collections.Generic
 
 let (<!>) = Result.map
 
@@ -185,6 +187,33 @@ let makeDependenciesConstraint = function
   Result.map Assertion.Depenedenciesof foo
 | _ -> Error "Invalid dependencies"
 
+let makePatternConstraint = function
+| JsonNode.String s ->
+  try
+    new Regex(s, RegexOptions.ECMAScript) |> Assertion.Pattern |> Ok
+  with
+  | _ -> Error "Invalid regex for pattern"
+| _ -> Error "Invalid pattern"
+
+let makePatternPropertiesConstraint = function
+| JsonNode.Object m ->
+  let initState = new Dictionary<Regex, JsonSchema>() |> Ok
+  let folder (s: Result<Dictionary<Regex, JsonSchema>, string>) k v =
+    try
+      let re = new Regex(k, RegexOptions.ECMAScript)
+      let schema = parse v
+      match schema, s with
+      | Ok x, Ok y ->
+        y.Add(re, x)
+        Ok y
+      | _, Error e -> Error e
+      | Error e, _ -> Error e
+    with
+    | _ -> Error "Invalid regex for patternProperties"
+  let res = Map.fold folder initState m
+  Result.map Assertion.PatternProperties res
+| _ -> Error "Invalid patternProperties"
+
 let makeConstraint name node =
   match name with
   | "type"                 -> makeTypeConstraint node                 |> Some
@@ -197,7 +226,7 @@ let makeConstraint name node =
   | "exclusiveMinimum"     -> makeExclusiveMinimumConstraint node     |> Some
   | "maxLength"            -> makeMaxLengthConstraint node            |> Some
   | "minLength"            -> makeMinLengthConstraint node            |> Some
-  // TODO pattern
+  | "pattern"              -> makePatternConstraint node              |> Some
   | "items"                -> makeItemsConstraint node                |> Some
   | "additionalItems"      -> makeAdditionalItemsConstraint node      |> Some
   | "maxItems"             -> makeMaxItemsConstraint node             |> Some
@@ -208,7 +237,7 @@ let makeConstraint name node =
   | "minProperties"        -> makeMinPropertiesConstraint node        |> Some
   | "required"             -> makeRequiredConstraint node             |> Some
   | "properties"           -> makePropertiesConstraint node           |> Some
-  // TODO patternProperties
+  | "patternProperties"    -> makePatternPropertiesConstraint node    |> Some
   | "additionalProperties" -> makeAdditionalPropertiesConstraint node |> Some
   | "dependencies"         -> makeDependenciesConstraint node         |> Some
   | "propertyNames"        -> makePropertyNamesConstraint node        |> Some
