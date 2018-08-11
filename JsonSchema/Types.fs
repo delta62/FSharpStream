@@ -4,14 +4,16 @@ open JsonDeserializer.Types
 open System.Text.RegularExpressions
 open System.Collections.Generic
 
-// TODO:
-// - ECMA262 regex validation
-// - Numeric precision?
+type SchemaObject = {
+  Assertions  : Assertion list;
+  Annotations : Annotation list;
+  Conditions  : Condition list;
+}
 
 type JsonSchema =
   | TrueSchema
   | FalseSchema
-  | ObjectSchema of Assertion list * Annotation list
+  | ObjectSchema of SchemaObject
 
 [<RequireQualifiedAccess>]
 type ScalarType =
@@ -81,3 +83,13 @@ type Annotation =
   | ReadOnly    of bool
   | WriteOnly   of bool
   | Examples    of JsonNode list
+
+[<RequireQualifiedAccess>]
+type Condition =
+  | If    of JsonSchema
+  | Then  of JsonSchema
+  | Else  of JsonSchema
+  | AllOf of JsonSchema list
+  | AnyOf of JsonSchema list
+  | OneOf of JsonSchema list
+  | Not   of JsonSchema

@@ -247,18 +247,75 @@ let makeAnnotation name node =
   | "examples"    -> makeExamplesAnnotation node    |> Some
   | _ -> None
 
+let makeIfCondition node =
+  Result.map Condition.If (parse node)
+
+let makeElseCondition node =
+  Result.map Condition.Else (parse node)
+
+let makeThenCondition node =
+  Result.map Condition.Then (parse node)
+
+let foldListResult f xs =
+  List.fold (fun acc x ->
+    Result.bind (fun y ->
+      Result.map (fun u -> u :: y) (f x)) acc
+  ) (Ok List.empty) xs
+
+let makeAllOfCondition = function
+| JsonNode.Array xs ->
+  // TODO length > 0
+  Result.map Condition.AllOf (foldListResult parse xs)
+| _ -> Error "Invalid allOf"
+
+let makeAnyOfCondition = function
+| JsonNode.Array xs ->
+  // TODO length > 0
+  Result.map Condition.AnyOf (foldListResult parse xs)
+| _ -> Error "Invalid anyOf"
+
+let makeOneOfCondition = function
+| JsonNode.Array xs ->
+  // TODO length > 0
+  Result.map Condition.AnyOf (foldListResult parse xs)
+| _ -> Error "Invalid oneOf"
+
+let makeNotCondition node =
+  Result.map Condition.Not (parse node)
+
+let makeCondition name node =
+  match name with
+  | "if"    -> makeIfCondition node    |> Some
+  | "then"  -> makeThenCondition node  |> Some
+  | "else"  -> makeElseCondition node  |> Some
+  | "allOf" -> makeAllOfCondition node |> Some
+  | "anyOf" -> makeAnyOfCondition node |> Some
+  | "oneOf" -> makeOneOfCondition node |> Some
+  | "not"   -> makeNotCondition node   |> Some
+  | _ -> None
+
 let obj m =
-  let init = (List.empty, List.empty) |> ObjectSchema |> Ok
-  Map.fold (fun s k v ->
+  let init =
+    {
+      Annotations = List.empty;
+      Assertions  = List.empty;
+      Conditions  = List.empty;
+    }
+  let init = init |> ObjectSchema |> Ok
+
+  let folder s k v =
     let res = makeConstraint k v
     match res, s with
     | _, Error e        -> Error e
     | None, s           -> s
     | Some (Error e), _ -> Error e
-    | Some (Ok x), Ok (ObjectSchema (xs, ys)) -> Ok (ObjectSchema (x :: xs, ys))
+    | Some (Ok x), Ok (ObjectSchema schema) ->
+      let xs = x :: schema.Assertions
+      { schema with Assertions = xs } |> ObjectSchema |> Ok
     // Should never be calling this with TrueSchema / FalseSchema
     | _                 -> Error "invalid state"
-  ) init m
+
+  Map.fold folder init m
 
 let parse = function
 | JsonNode.Object m      -> obj m
