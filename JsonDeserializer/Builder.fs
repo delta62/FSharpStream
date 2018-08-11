@@ -1,7 +1,7 @@
 module JsonDeserializer.Builder
 
 open FSharpx.Collections
-open JsonDeserializer.Types
+open Types
 open JsonStream.StateOps
 
 type Production =

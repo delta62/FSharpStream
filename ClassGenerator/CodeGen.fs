@@ -29,10 +29,10 @@ let genObjMember name node =
 
 let genPreKeyword node =
   match node with
-  | Null      -> SK.ObjectKeyword
-  | Boolean _ -> SK.BoolKeyword
-  | String _  -> SK.StringKeyword
-  | Number _  -> SK.DoubleKeyword
+  | JsonNode.Null      -> SK.ObjectKeyword
+  | JsonNode.Boolean _ -> SK.BoolKeyword
+  | JsonNode.String _  -> SK.StringKeyword
+  | JsonNode.Number _  -> SK.DoubleKeyword
   | x         -> sprintf "Unspported builtin %A" x |> failwith
   |> SF.Token
   |> SF.PredefinedType
@@ -44,16 +44,16 @@ let genPreMember name node =
 
 let genMember name node =
   match node with
-  | Null
-  | Boolean _
-  | String _
-  | Number _ ->
+  | JsonNode.Null
+  | JsonNode.Boolean _
+  | JsonNode.String _
+  | JsonNode.Number _ ->
     genPreMember (memberName name) node
-  | Array _ ->
+  | JsonNode.Array _ ->
     genArrayMember (memberName name) node
-  | Object _ ->
+  | JsonNode.Object _ ->
     // genObjMember name node
-    genPreMember name Null
+    genPreMember name JsonNode.Null
 
 let genField (x: PropertyDeclarationSyntax) =
   let accs = SK.GetAccessorDeclaration |> SF.AccessorDeclaration

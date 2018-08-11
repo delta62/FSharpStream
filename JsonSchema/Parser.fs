@@ -274,7 +274,7 @@ let makeAnnotation name node =
   | "readOnly"    -> makeReadOnlyAnnotation node    |> Some
   | "writeOnly"   -> makeWriteOnlyAnnotation node   |> Some
   | "examples"    -> makeExamplesAnnotation node    |> Some
-  | _ -> None
+  | _             -> None
 
 let makeIfCondition node =
   Result.map Condition.If (parse node)
@@ -321,7 +321,7 @@ let makeCondition name node =
   | "anyOf" -> makeAnyOfCondition node |> Some
   | "oneOf" -> makeOneOfCondition node |> Some
   | "not"   -> makeNotCondition node   |> Some
-  | _ -> None
+  | _       -> None
 
 let obj m =
   let init =
@@ -350,4 +350,4 @@ let parse = function
 | JsonNode.Object m      -> obj m
 | JsonNode.Boolean true  -> Ok TrueSchema
 | JsonNode.Boolean false -> Ok FalseSchema
-| _                      -> Error "Root level items must be objects"
+| _                      -> Error "Root level items must be objects or booleans"

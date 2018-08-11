@@ -3,10 +3,10 @@
 open Argu
 open JsonStream.Types
 open JsonDeserializer.Types
-open ClassGenerator.JsonParser
-open ClassGenerator.CodeGen
-open ClassGenerator.Names
-open ClassGenerator.Compiler
+open JsonParser
+open CodeGen
+open Names
+open Compiler
 open EnvLogger
 open System.IO
 
