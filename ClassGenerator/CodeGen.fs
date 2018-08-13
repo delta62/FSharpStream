@@ -4,6 +4,7 @@ open JsonDeserializer.Types
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 open ClassGenerator.Names
+open JsonSchema.Types
 open EnvLogger
 
 type SF = SyntaxFactory
@@ -61,7 +62,7 @@ let genField (x: PropertyDeclarationSyntax) =
   let accs = accs |> SF.SingletonList<AccessorDeclarationSyntax> |> SF.AccessorList
   x.WithAccessorList(accs)
 
-let genInterface (n: string) ps =
+let genInterface (n: string) (schema: JsonSchema) =
   sprintf "Generating interface for %s" n |> log.Info
   let folder (decl: InterfaceDeclarationSyntax) k v =
     let fieldDecl = genMember k v |> genField
@@ -73,7 +74,14 @@ let genInterface (n: string) ps =
     |> SF.TokenList
     |> SF.InterfaceDeclaration(n).WithModifiers
 
-  Map.fold folder iface ps
+  match schema with
+  | ObjectSchema { Assertions = asrt; Annotations = annt; } ->
+    let members = List.tryPick (function|Assertion.Properties xs->Some xs|_->None) asrt
+    let typ = List.tryPick (function|Assertion.Type(ScalarType x)->Some x|_->None) asrt
+    Map.fold folder iface schema
+  | TrueSchema
+  | FalseSchema ->
+    Error "Invalid schema type"
 
 let genCompUnit mbr =
   let name = SF.QualifiedName(SF.QualifiedName(SF.IdentifierName("System"), SF.IdentifierName("Collections")), SF.IdentifierName("Generic"))

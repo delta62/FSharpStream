@@ -9,6 +9,7 @@ open Names
 open Compiler
 open EnvLogger
 open System.IO
+open JsonSchema.Parser
 
 let log = new Logger()
 
@@ -19,11 +20,6 @@ with
     member s.Usage =
       match s with
       | Schema _ -> "Path to a JSON schema document"
-
-let readInterface n i =
-  match i with
-  | JsonNode.Object ps -> genInterface n ps |> Ok
-  | _ -> Error { Line = 0u; Column = 0u; Message = "Only top-level objects are supported" }
 
 [<EntryPoint>]
 let main argv =
@@ -37,7 +33,8 @@ let main argv =
 
   let res =
     fromFile schemaFile
-    |> Result.bind (readInterface asmName)
+    |> Result.bind parse
+    |> Result.bind (genInterface asmName)
     |> Result.map (genCompUnit)
     |> Result.map (mkAssembly asmName)
 

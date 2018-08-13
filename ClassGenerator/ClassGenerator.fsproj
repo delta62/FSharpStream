@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\JsonDeserializer\JsonDeserializer.fsproj" />
+    <ProjectReference Include="..\JsonSchema\JsonSchema.fsproj" />
   </ItemGroup>
 
 </Project>

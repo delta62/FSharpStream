@@ -34,3 +34,4 @@ let fromFile f =
   LazyList.unfold unfolder reader
   |> tokenize
   |> foldResultFlat deserialize
+  |> Result.mapError (fun x -> x.Message)
